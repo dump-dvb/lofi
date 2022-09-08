@@ -10,8 +10,8 @@ Tool can `correlate` telegrams to GPS trackpoints, `filter` only relevant telegr
 
 ## Examples
 
-- `lofi correltate -t filtered_telegrams -t filtered_telegrams2 -g gpx -g gpx2 -o stops.json -G geo.json`
+- `lofi correltate -t filtered_telegrams -t filtered_telegrams2 -g gpx -g gpx2 -s stops.json -j geo.json`
 - `lofi fiter -w wartrammer.json -w wartrammer2.json -t telegrams1.csv -t telegrams2.csv -o filtered-telegrams.csv`
-- `lofi stops2geo -i stops.json -o geo.json`
+- `lofi stops2geo -o geo.json ./stops1.json ./stops2.json`
 - `lofi merge -o ./output-folder ./stops1.json ./stops3.json ./stops2.json`
 
