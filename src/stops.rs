@@ -1,19 +1,15 @@
 use crate::gps::{Gps, GpsPoint};
-use crate::structs::{Cli, Command, CorrTelegram, CorrelateArgs, MergeArgs, StopsToGeoArgs};
+use crate::structs::{CorrTelegram, CorrelateArgs};
 
 use dump_dvb::locations::{
-    self, LocationsJson, R09Types, RegionMetaInformation, RegionReportLocations, ReportLocation,
+    LocationsJson, R09Types, RegionMetaInformation, RegionReportLocations, ReportLocation,
 };
-use dump_dvb::measurements::FinishedMeasurementInterval;
 use dump_dvb::telegrams::r09::R09SaveTelegram;
 
 use std::collections::HashMap;
-use std::fs::{write, File};
+use std::fs::write;
 
-use geojson::{Feature, FeatureCollection, Geometry, JsonObject, JsonValue, Value};
-use chrono;
-use clap::Parser;
-use serde_json;
+use geojson::FeatureCollection;
 
 use crate::{filter, read_telegrams, get_features};
 

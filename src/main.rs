@@ -2,20 +2,15 @@ mod gps;
 mod structs;
 mod stops;
 
-use gps::{Gps, GpsPoint};
-use structs::{Cli, Command, CorrTelegram, CorrelateArgs, MergeArgs, StopsToGeoArgs};
+use structs::{Cli, Command, MergeArgs, StopsToGeoArgs};
 
-use dump_dvb::locations::{
-    self, LocationsJson, R09Types, RegionMetaInformation, RegionReportLocations, ReportLocation,
-};
+use dump_dvb::locations::LocationsJson;
 use dump_dvb::measurements::FinishedMeasurementInterval;
 use dump_dvb::telegrams::r09::R09SaveTelegram;
 
-use std::collections::HashMap;
 use std::fs::{write, File};
 
 use geojson::{Feature, FeatureCollection, Geometry, JsonObject, JsonValue, Value};
-use chrono;
 use clap::Parser;
 use serde_json;
 
