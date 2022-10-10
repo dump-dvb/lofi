@@ -1,6 +1,6 @@
 use clap::{Args, Parser, Subcommand};
 
-use dump_dvb::locations::{RequestStatus, TransmissionPosition};
+use dump_dvb::locations::{ReportLocation, RequestStatus};
 use dump_dvb::telegrams::r09::R09SaveTelegram;
 
 use crate::gps::GpsPoint;
@@ -8,9 +8,7 @@ use crate::gps::GpsPoint;
 /// time difference is calculated as telegram.timestamp - gpspoint.timestamp
 #[derive(Debug)]
 pub struct CorrTelegram {
-    pub junction: i32,
-    pub request_status: RequestStatus,
-    pub direction: i16,
+    pub transmission_position: i32,
     timestamp: i64,
     location_before: GpsPoint,
     location_after: GpsPoint,
@@ -20,9 +18,7 @@ impl CorrTelegram {
     pub fn new(tg: R09SaveTelegram, before: GpsPoint, after: GpsPoint) -> Option<CorrTelegram> {
         match RequestStatus::from_i16(tg.request_status) {
             Some(r) => Some(CorrTelegram {
-                junction: tg.junction,
-                request_status: r,
-                direction: tg.direction,
+                transmission_position: tg.reporting_point,
                 timestamp: tg.time.timestamp(),
                 location_before: before,
                 location_after: after,
@@ -31,14 +27,10 @@ impl CorrTelegram {
         }
     }
 
-    pub fn interpolate_position(&self) -> (i32, TransmissionPosition) {
+    pub fn interpolate_position(&self) -> (i32, ReportLocation) {
         (
-            self.junction,
-            TransmissionPosition {
-                dhid: None,
-                name: None,
-                request_status: self.request_status.clone(),
-                direction: self.direction,
+            self.transmission_position,
+            ReportLocation {
                 lat: self.location_before.lat
                     + (self.timestamp - self.location_before.timestamp) as f64
                         / (self.location_after.timestamp + self.location_before.timestamp) as f64
@@ -47,6 +39,7 @@ impl CorrTelegram {
                     + (self.timestamp - self.location_before.timestamp) as f64
                         / (self.location_after.timestamp + self.location_before.timestamp) as f64
                         * (self.location_after.lon - self.location_before.lon),
+                properties: serde_json::Value::Null,
             },
         )
     }
@@ -100,7 +93,7 @@ pub struct CorrelateArgs {
     pub geojson: Option<String>,
     /// Maximum time difference in seconds between gps point and telegram transmission time. Bigger
     /// values result in more transmission position matched at the cost of accuracy.
-    #[clap(long, default_value="5")]
+    #[clap(long, default_value = "5")]
     pub corr_window: i64,
     /// Telegram frequency in the region (in Hz), see https://click.dvb.solutions/
     #[clap(long)]
@@ -126,7 +119,7 @@ pub struct StopsToGeoArgs {
     #[clap(required = true)]
     pub stops: Vec<String>,
     /// geojson file to write, if not specified geojson is dumped to stdout
-    #[clap(short='o', long="geojson")]
+    #[clap(short = 'o', long = "geojson")]
     pub geojson: Option<String>,
 }
 

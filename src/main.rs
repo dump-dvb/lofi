@@ -6,8 +6,7 @@ use clap::Parser;
 use serde_json;
 
 use dump_dvb::locations::{
-    DocumentMetaInformation, InterRegional, R09Types, RegionMetaInformation,
-    RegionalTransmissionPositions, TransmissionPosition,
+    self, LocationsJson, R09Types, RegionMetaInformation, RegionReportLocations, ReportLocation,
 };
 use dump_dvb::measurements::FinishedMeasurementInterval;
 use dump_dvb::telegrams::r09::R09SaveTelegram;
@@ -31,90 +30,29 @@ fn main() {
             let tg = filter(read_telegrams(opts.telegrams), opts.wartrammer);
             let file = File::create(opts.outfile).expect("Couldn't create output file");
             let mut writer = csv::Writer::from_writer(file);
-            tg.into_iter().filter_map(|x| writer.serialize(x).ok()).for_each(drop);
+            tg.into_iter()
+                .filter_map(|x| writer.serialize(x).ok())
+                .for_each(drop);
         }
     }
 }
 
 fn merge(opts: MergeArgs) {
-    let mut dedup: HashMap<i32, HashMap<(i32, i16, i16), TransmissionPosition>> = HashMap::new();
-        let mut regions: Vec<i32> = vec![];
-    for path in opts.stops {
-        let stops = InterRegional::from(&path).unwrap();
-        for (reg, regval) in stops.data {
-            regions.push(reg);
-            for (lsa, pos) in regval {
-                for p in pos {
-                    let val = dedup.entry(reg).or_insert(HashMap::new());
-                    val.entry((lsa, p.direction, p.clone().request_status as i16))
-                        .and_modify(|old| old.lat = (old.lat + p.lat) / 2.0)
-                        .and_modify(|old| old.lon = (old.lon + p.lon) / 2.0)
-                        .or_insert(p);
-                }
-            }
-        }
-    }
-
-
-    let document_meta = DocumentMetaInformation {
-        schema_version: String::from("2"),
-        date: chrono::Utc::now(),
-        generator: Some(String::from("lofi")),
-        generator_version: Some(String::from(env!("CARGO_PKG_VERSION"))),
-    };
-
-    let region_dummy_meta = RegionMetaInformation {
-            frequency: None,
-            city_name: None,
-            type_r09: None,
-            lat: None,
-            lon: None,
-        };
-
-    let mut all_regions: HashMap<i32, RegionalTransmissionPositions>= HashMap::new();
-    let mut all_meta: HashMap<i32, RegionMetaInformation> = HashMap::new();
-
-    for r in regions {
-        let mut region_out: RegionalTransmissionPositions = HashMap::new();
-        let dedup_reg = dedup.get(&r).unwrap().clone();
-        for ((lsa, _dir, _req), pos) in dedup_reg {
-            region_out.entry(lsa).or_insert(Vec::new()).push(pos);
-        }
-
-        all_regions.insert(r, region_out.clone());
-        // TODO despaggetify so this can be properly set
-        all_meta.insert(r, region_dummy_meta.clone());
-
-        let region_json = InterRegional {
-            document: document_meta.clone(),
-            data: HashMap::from([(r, region_out)]),
-            meta: HashMap::from([(r, region_dummy_meta.clone())]),
-        };
-
-        region_json.write(&(format!("{}/{}.json", opts.out_dir, r)));
-    }
-
-    let all_json = InterRegional {
-        document: document_meta,
-        data: all_regions,
-        meta: all_meta,
-    };
-        all_json.write(&(format!("{}/all.json", opts.out_dir)));
-
+    // another good point - how do we want to structure the shit
+    todo!("Not implemented yet for new format");
 }
 
+/// Convert the json-formatted locations to geojson, useful for debug
 fn stops2geo(opts: StopsToGeoArgs) {
     let mut features: Vec<Feature> = vec![];
     for path in opts.stops {
-        let stops = InterRegional::from(&path).expect("Couldn't deserialize stops file");
-        for (_k, v) in stops.data {
-            features.append(&mut get_features(&v));
-        }
+        let stops = LocationsJson::from_file(&path).expect("Couldn't deserialize stops file");
+        features.append(&mut get_features(&stops));
     }
 
     let feature_collection = FeatureCollection {
         bbox: None,
-        features: features,
+        features,
         foreign_members: None,
     };
     let geojson_string = feature_collection.to_string();
@@ -137,15 +75,30 @@ fn filter(unfiltered: Vec<R09SaveTelegram>, wtfiles: Vec<String>) -> Vec<R09Save
             serde_json::from_reader(rdr).expect("Couldn't deserialize wartrammer json");
         wt.append(&mut wt_file);
     }
+    eprintln!("using times.json: {:#?}", wt);
 
+    //TODO
     let mut telegrams = vec![];
     for w in wt {
+        let mut fit = 0;
+        let mut didnt = 0;
         let mut tg: Vec<R09SaveTelegram> = unfiltered
             .iter()
+            // Here we also need to check against region, but telegram dumps don't have it atm
             .filter_map(|a| if w.fits(&a) { Some(a) } else { None })
             .cloned()
+            .filter_map(|a| {
+                if w.fits(&a) {
+                    fit += 1;
+                    Some(a)
+                } else {
+                    didnt += 1;
+                    None
+                }
+            })
             .collect();
         telegrams.append(&mut tg);
+        eprintln!("processed: {}; fit: {}; didnt: {}", fit + didnt, fit, didnt);
     }
     telegrams
 }
@@ -190,31 +143,24 @@ fn correlate(cli: CorrelateArgs) {
         .collect();
 
     // for every corrtelegram, interpolate the position from gps track
-    let positions: Vec<(i32, TransmissionPosition)> =
+    let positions: Vec<(i32, ReportLocation)> =
         ctg.iter().map(|x| x.interpolate_position()).collect();
 
     // dedups locations
-    let mut deduped_positions: HashMap<(i32, i16, i16), TransmissionPosition> = HashMap::new();
-    for (lsa, pos) in positions {
+    let mut deduped_positions: HashMap<i32, ReportLocation> = HashMap::new();
+    for (mp, pos) in positions {
         deduped_positions
-            .entry((lsa, pos.direction, pos.request_status.clone() as i16))
+            .entry(mp)
             .and_modify(|e| e.lat = (pos.lat + e.lat) / 2 as f64)
             .and_modify(|e| e.lon = (pos.lon + e.lon) / 2 as f64)
             .or_insert(pos);
     }
 
     // Constructing the stops.json
-    let mut reg: RegionalTransmissionPositions = HashMap::new();
-    for ((lsa, _dir, _req), pos) in deduped_positions {
-        reg.entry(lsa).or_insert(Vec::new()).push(pos);
+    let mut reg: RegionReportLocations = HashMap::new();
+    for (mp, pos) in deduped_positions {
+        reg.entry(mp).or_insert(pos);
     }
-
-    let document_meta = DocumentMetaInformation {
-        schema_version: String::from("2"),
-        date: chrono::Utc::now(),
-        generator: Some(String::from("lofi")),
-        generator_version: Some(String::from(env!("CARGO_PKG_VERSION"))),
-    };
 
     let region_meta = RegionMetaInformation {
         frequency: cli.meta_frequency,
@@ -224,19 +170,20 @@ fn correlate(cli: CorrelateArgs) {
         lon: None,
     };
 
-    let stops = InterRegional {
-        document: document_meta,
-        data: HashMap::from([(cli.region, reg.clone())]),
-        meta: HashMap::from([(cli.region, region_meta)]),
-    };
+    let stops = LocationsJson::construct(
+        HashMap::from([(cli.region, reg)]),
+        HashMap::from([(cli.region, region_meta)]),
+        None,
+        None,
+    );
 
     stops.write(&cli.stops_json);
 
     if let Some(path) = cli.geojson {
-        let features = get_features(&reg);
+        let features = get_features(&stops);
         let feature_collection = FeatureCollection {
             bbox: None,
-            features: features,
+            features,
             foreign_members: None,
         };
         let geojson_string = feature_collection.to_string();
@@ -270,17 +217,17 @@ fn correlate_telegram(
     }
 }
 
-fn get_features(data: &RegionalTransmissionPositions) -> Vec<Feature> {
+fn get_features(locs: &LocationsJson) -> Vec<Feature> {
     let mut features: Vec<Feature> = vec![];
-    for (n, v) in data.iter() {
+    for (n, v) in locs.data.iter() {
         //eprintln!("{:?}, {:?}", n, v);
-        for x in v {
+        for (mp, loc) in v {
             let mut properties = JsonObject::new();
-            let propval = format!("lsa:{} dir:{} type:{:?}", n, x.direction, x.request_status);
+            let propval = format!("{}", mp);
             properties.insert("name".to_string(), JsonValue::from(propval));
             features.push(Feature {
                 bbox: None,
-                geometry: Some(Geometry::new(Value::Point(vec![x.lon, x.lat]))),
+                geometry: Some(Geometry::new(Value::Point(vec![loc.lon, loc.lat]))),
                 id: None,
                 properties: Some(properties),
                 foreign_members: None,
