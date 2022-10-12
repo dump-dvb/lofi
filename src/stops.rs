@@ -41,8 +41,8 @@ pub fn correlate(cli: CorrelateArgs) {
     for (mp, pos) in positions {
         deduped_positions
             .entry(mp)
-            .and_modify(|e| e.lat = (pos.lat + e.lat) / 2 as f64)
-            .and_modify(|e| e.lon = (pos.lon + e.lon) / 2 as f64)
+            .and_modify(|e| e.lat = (pos.lat + e.lat) / 2_f64)
+            .and_modify(|e| e.lon = (pos.lon + e.lon) / 2_f64)
             .or_insert(pos);
     }
 
@@ -102,7 +102,7 @@ pub fn correlate_telegram(
         .collect();
 
     match (before.get(0), after.get(0)) {
-        (Some(a), Some(b)) => CorrTelegram::new(telegram.clone(), **b, **a),
+        (Some(a), Some(b)) => Some(CorrTelegram::new(telegram.clone(), **b, **a)),
         _ => None,
     }
 }

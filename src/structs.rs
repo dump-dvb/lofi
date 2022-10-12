@@ -1,6 +1,6 @@
 use clap::{Args, Parser, Subcommand};
 
-use dump_dvb::locations::{ReportLocation, RequestStatus};
+use dump_dvb::locations::ReportLocation;
 use dump_dvb::telegrams::r09::R09SaveTelegram;
 
 use crate::gps::GpsPoint;
@@ -15,15 +15,12 @@ pub struct CorrTelegram {
 }
 
 impl CorrTelegram {
-    pub fn new(tg: R09SaveTelegram, before: GpsPoint, after: GpsPoint) -> Option<CorrTelegram> {
-        match RequestStatus::from_i16(tg.request_status) {
-            Some(r) => Some(CorrTelegram {
-                transmission_position: tg.reporting_point,
-                timestamp: tg.time.timestamp(),
-                location_before: before,
-                location_after: after,
-            }),
-            None => None,
+    pub fn new(tg: R09SaveTelegram, before: GpsPoint, after: GpsPoint) -> CorrTelegram {
+        CorrTelegram {
+            transmission_position: tg.reporting_point,
+            timestamp: tg.time.timestamp(),
+            location_before: before,
+            location_after: after,
         }
     }
 

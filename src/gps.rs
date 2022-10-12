@@ -74,7 +74,6 @@ impl Gps {
         for track in gpx.tracks {
             for segment in track.segments {
                 for point in segment.points {
-                    //eprintln!("{:?}", point.time.unwrap().format());
                     let soul = GpsPoint {
                         lat: point.point().y(), // according to gpx crate team x and y are less
                         lon: point.point().x(), // ambiguous for coordinates on a map
@@ -91,7 +90,6 @@ impl Gps {
                     };
 
                     self.insert(soul.timestamp, soul);
-                    //eprintln!("extracted point: {:?}", soul);
                 }
             }
         }
@@ -102,7 +100,7 @@ impl Gps {
         self.0.iter()
     }
 
-    pub fn iter_mut(self: &mut Self) -> impl Iterator<Item = (&i64, &mut GpsPoint)> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&i64, &mut GpsPoint)> {
         self.0.iter_mut()
     }
 

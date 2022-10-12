@@ -1,6 +1,6 @@
 mod gps;
-mod structs;
 mod stops;
+mod structs;
 
 use structs::{Cli, Command, MergeArgs, StopsToGeoArgs};
 
@@ -10,13 +10,11 @@ use dump_dvb::telegrams::r09::R09SaveTelegram;
 
 use std::fs::{write, File};
 
-use geojson::{Feature, FeatureCollection, Geometry, JsonObject, JsonValue, Value};
 use clap::Parser;
-use serde_json;
+use geojson::{Feature, FeatureCollection, Geometry, JsonObject, JsonValue, Value};
 
 fn main() {
     let cli = Cli::parse();
-    eprintln!("{:#?}", cli);
 
     match cli.command {
         Command::Correlate(opts) => stops::correlate(opts),
@@ -34,7 +32,6 @@ fn main() {
 }
 
 fn merge(opts: MergeArgs) {
-    // another good point - how do we want to structure the shit
     todo!("Not implemented yet for new format");
 }
 
@@ -71,32 +68,11 @@ fn filter(unfiltered: Vec<R09SaveTelegram>, wtfiles: Vec<String>) -> Vec<R09Save
             serde_json::from_reader(rdr).expect("Couldn't deserialize wartrammer json");
         wt.append(&mut wt_file);
     }
-    eprintln!("using times.json: {:#?}", wt);
 
-    //TODO
-    let mut telegrams = vec![];
-    for w in wt {
-        let mut fit = 0;
-        let mut didnt = 0;
-        let mut tg: Vec<R09SaveTelegram> = unfiltered
-            .iter()
-            // Here we also need to check against region, but telegram dumps don't have it atm
-            .filter_map(|a| if w.fits(&a) { Some(a) } else { None })
-            .cloned()
-            .filter_map(|a| {
-                if w.fits(&a) {
-                    fit += 1;
-                    Some(a)
-                } else {
-                    didnt += 1;
-                    None
-                }
-            })
-            .collect();
-        telegrams.append(&mut tg);
-        eprintln!("processed: {}; fit: {}; didnt: {}", fit + didnt, fit, didnt);
-    }
-    telegrams
+    unfiltered
+        .into_iter()
+        .filter(|a| wt.iter().any(|f| f.fits(a)))
+        .collect()
 }
 
 fn read_telegrams(paths: Vec<String>) -> Vec<R09SaveTelegram> {
@@ -122,7 +98,6 @@ fn read_telegrams(paths: Vec<String>) -> Vec<R09SaveTelegram> {
 fn get_features(locs: &LocationsJson) -> Vec<Feature> {
     let mut features: Vec<Feature> = vec![];
     for (n, v) in locs.data.iter() {
-        //eprintln!("{:?}, {:?}", n, v);
         for (mp, loc) in v {
             let mut properties = JsonObject::new();
             let propval = format!("{}", mp);
