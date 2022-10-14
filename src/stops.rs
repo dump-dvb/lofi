@@ -11,11 +11,12 @@ use std::fs::write;
 
 use geojson::FeatureCollection;
 
-use crate::{filter, read_telegrams, get_features};
+use crate::{filter, get_features, read_telegrams};
 
-pub fn correlate(cli: CorrelateArgs) {
+// Handles `lofi correlate`
+pub fn correlate_cmd(cli: CorrelateArgs) {
     let telegrams = match cli.wartrammer {
-        Some(wtfiles) => filter(read_telegrams(cli.telegrams), wtfiles),
+        Some(wt) => filter::filter(read_telegrams(cli.telegrams), wt),
         None => read_telegrams(cli.telegrams),
     };
 
@@ -27,9 +28,9 @@ pub fn correlate(cli: CorrelateArgs) {
         gps.insert_from_legacy(&filepath);
     }
 
+    // correlate telegrams to gps and for every telegram
     let ctg: Vec<CorrTelegram> = telegrams
-        .iter()
-        .filter_map(|tg| correlate_telegram(tg, &gps, cli.corr_window))
+        .filter_map(|t| correlate_telegram(&t, &gps, cli.corr_window))
         .collect();
 
     // for every corrtelegram, interpolate the position from gps track
@@ -63,8 +64,8 @@ pub fn correlate(cli: CorrelateArgs) {
     let stops = LocationsJson::construct(
         HashMap::from([(cli.region, reg)]),
         HashMap::from([(cli.region, region_meta)]),
-        None,
-        None,
+        Some(String::from(env!("CARGO_PKG_NAME"))),
+        Some(String::from(env!("CARGO_PKG_VERSION"))),
     );
 
     stops.write(&cli.stops_json);
@@ -106,4 +107,3 @@ pub fn correlate_telegram(
         _ => None,
     }
 }
-
