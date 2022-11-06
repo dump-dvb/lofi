@@ -56,6 +56,8 @@ pub struct Cli {
 pub enum Command {
     /// Correlate R09 Telegrams to the GPS data
     Correlate(CorrelateArgs),
+    /// Correlates to every edge inside the graph a list of gps positions and historic time
+    Crayon(CrayonArgs),
     /// Merge the different stops.json-formatted files and produce windhsield-ready output
     Merge(MergeArgs),
     /// Convert stops.json to a geojson file, useful for visualizing/debugging
@@ -64,6 +66,33 @@ pub enum Command {
     /// Filter the telegrams using measurement intervals from wartrammer-40k
     Filter(FilterArgs),
 }
+
+#[derive(Args, Debug)]
+pub struct CrayonArgs {
+    /// telegram CSV file
+    #[clap(short, long)]
+    pub telegrams: Vec<String>,
+    /// region number, see https://click.dvb.solutions/
+    #[clap(short, long)]
+    pub region: i32,
+    /// JSON outut file in stop-names format, if not specified result is printed on stdout
+    #[clap(short, long)]
+    pub stops_json: String,
+    /// JSON outut from overpass turbo containing all the line information
+    #[clap(short, long)]
+    pub overpass_turbo: String,
+    /// file where the result should be written to
+    #[clap(short, long)]
+    pub export: String,
+    /// Geojson output for diagnostics
+    #[clap(short = 'g', long)]
+    pub geojson_graph: Option<String>,
+    /// Geojson output for diagnostics
+    #[clap(short = 'p', long)]
+    pub geojson_points: Option<String>,
+
+}
+
 
 #[derive(Args, Debug)]
 pub struct CorrelateArgs {
@@ -76,7 +105,7 @@ pub struct CorrelateArgs {
     /// Legacy format gps data, you most probably don't need that
     #[clap(long)]
     pub gps_legacy: Vec<String>,
-    /// Region number, see https://click.dvb.solutions/
+    /// region number, see https://click.dvb.solutions/
     #[clap(short, long)]
     pub region: i32,
     /// wartrammer-40k json file with measured public transport runs

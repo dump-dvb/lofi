@@ -2,6 +2,7 @@ mod filter;
 mod gps;
 mod stops;
 mod structs;
+mod crayon;
 
 use structs::{Cli, Command, MergeArgs, StopsToGeoArgs};
 use crate::filter::filter_cmd;
@@ -13,6 +14,7 @@ use std::fs::{write, File};
 
 use clap::Parser;
 use geojson::{Feature, FeatureCollection, Geometry, JsonObject, JsonValue, Value};
+use crate::structs::CrayonArgs;
 
 fn main() {
     let cli = Cli::parse();
@@ -22,10 +24,11 @@ fn main() {
         Command::Merge(opts) => merge(opts),
         Command::StopsToGeo(opts) => stops2geo(opts),
         Command::Filter(opts) => filter_cmd(opts),
+        Command::Crayon(opts) => invoke_crayon(opts)
     }
 }
 
-fn merge(opts: MergeArgs) {
+fn merge(_opts: MergeArgs) {
     todo!();
 }
 
@@ -62,7 +65,17 @@ fn read_telegrams(paths: Vec<String>) -> Box<dyn Iterator<Item = R09SaveTelegram
         .map(|r| r.into_deserialize())
         .flat_map(|tg| {
             // TODO proper result<Option<>, > handling
-            tg.filter_map(|t| t.ok().unwrap())
+            tg.filter_map(|t| {
+                match t {
+                    Ok(data) => {
+                        data
+                    },
+                    Err(e) => {
+                        println!("error {:?}", e);
+                        None
+                    }
+                }
+            })
         }))
 }
 
@@ -84,4 +97,8 @@ fn get_features(locs: &LocationsJson) -> Vec<Feature> {
     }
 
     features
+}
+
+fn invoke_crayon(args: CrayonArgs) {
+    crayon::correlate_lines(args);
 }

@@ -33,13 +33,13 @@ struct Location {
     latitude: f64,
     longitude: f64,
     altitude: f64,
-    accuracy: f64,
-    vertical_accuracy: f64,
-    bearing: f64,
-    speed: f64,
+    _accuracy: f64,
+    _vertical_accuracy: f64,
+    _bearing: f64,
+    _speed: f64,
     #[serde(rename = "elapsedMs")]
-    elapsed_ms: i32,
-    provider: String,
+    _elapsed_ms: i32,
+    _provider: String,
 }
 
 impl Gps {
@@ -96,10 +96,12 @@ impl Gps {
     }
 
     // hashmap boilerplate
+    #[allow(dead_code)]
     pub fn iter(&self) -> impl Iterator<Item = (&i64, &GpsPoint)> {
         self.0.iter()
     }
 
+    #[allow(dead_code)]
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&i64, &mut GpsPoint)> {
         self.0.iter_mut()
     }
