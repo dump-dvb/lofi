@@ -50,6 +50,9 @@ impl CorrTelegram {
 pub struct Cli {
     #[clap(subcommand)]
     pub command: Command,
+    /// Verbose output, can be passed more than once
+    #[clap(short, long, action = clap::ArgAction::Count)]
+    pub verbose: u8,
 }
 
 #[derive(Subcommand, Debug)]
