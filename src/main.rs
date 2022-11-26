@@ -1,13 +1,12 @@
+mod crayon;
 mod filter;
 mod gps;
 mod stops;
 mod structs;
-mod crayon;
-mod region_meta;
 
 use crate::filter::filter_cmd;
-use crate::structs::{Cli, Command, MergeArgs, StopsToGeoArgs};
 use crate::structs::CrayonArgs;
+use crate::structs::{Cli, Command, MergeArgs, StopsToGeoArgs};
 
 use dump_dvb::locations::LocationsJson;
 use dump_dvb::telegrams::r09::R09SaveTelegram;
@@ -16,7 +15,6 @@ use std::fs::{write, File};
 
 use clap::Parser;
 use geojson::{Feature, FeatureCollection, Geometry, JsonObject, JsonValue, Value};
-use log;
 
 fn main() {
     let cli = Cli::parse();
@@ -29,7 +27,7 @@ fn main() {
         Command::Merge(opts) => merge(opts),
         Command::StopsToGeo(opts) => stops2geo(opts),
         Command::Filter(opts) => filter_cmd(opts),
-        Command::Crayon(opts) => invoke_crayon(opts)
+        Command::Crayon(opts) => invoke_crayon(opts),
     }
 }
 
@@ -70,7 +68,7 @@ fn read_telegrams(paths: Vec<String>) -> Box<dyn Iterator<Item = R09SaveTelegram
             .map(csv::Reader::from_reader)
             .flat_map(|r| r.into_deserialize())
             // TODO proper Result<Option<_>,_> handling
-            .map(|tg| {  tg.ok().unwrap() }),
+            .map(|tg| tg.ok().unwrap()),
     )
 }
 
