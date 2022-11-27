@@ -1,8 +1,10 @@
 use crate::gps::{Gps, GpsPoint};
 use crate::structs::{CorrTelegram, CorrelateArgs};
+use crate::{filter, get_features, read_telegrams};
 
 use dump_dvb::locations::{
-    LocationsJson, R09Types, RegionMetaInformation, RegionReportLocations, ReportLocation,
+    LocationsJson, RegionMetaInformation, RegionReportLocations, ReportLocation,
+    REGION_META_MAP,
 };
 use dump_dvb::telegrams::r09::R09SaveTelegram;
 
@@ -10,8 +12,7 @@ use std::collections::HashMap;
 use std::fs::write;
 
 use geojson::FeatureCollection;
-
-use crate::{filter, get_features, read_telegrams};
+use log::{info, warn};
 
 // Handles `lofi correlate`
 pub fn correlate_cmd(cli: CorrelateArgs) {
@@ -83,12 +84,22 @@ pub fn correlate_cmd(cli: CorrelateArgs) {
         reg.entry(mp).or_insert(pos);
     }
 
-    let region_meta = RegionMetaInformation {
-        frequency: cli.meta_frequency,
-        city_name: cli.meta_city,
-        type_r09: Some(R09Types::R16),
-        lat: None,
-        lon: None,
+    let region_meta = match REGION_META_MAP.get(&cli.region) {
+        Some(regio) => {
+            info!("region no. {:?} lookup succesful: {:?}", reg, regio);
+            regio.clone()
+        }
+        None => {
+            warn!("Region {:?} is unknown! Is dump-dvb.rs updated?", cli.region);
+            warn!("Lookup failed, populated region meta information from cli!");
+            RegionMetaInformation {
+                frequency: cli.meta_frequency,
+                city_name: cli.meta_city,
+                type_r09: None,
+                lat: None,
+                lon: None,
+            }
+        }
     };
 
     let stops = LocationsJson::construct(
