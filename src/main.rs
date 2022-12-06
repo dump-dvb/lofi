@@ -1,11 +1,12 @@
+mod crayon;
 mod filter;
 mod gps;
 mod stops;
 mod structs;
-mod crayon;
 
-use structs::{Cli, Command, MergeArgs, StopsToGeoArgs};
 use crate::filter::filter_cmd;
+use crate::structs::CrayonArgs;
+use crate::structs::{Cli, Command, MergeArgs, StopsToGeoArgs};
 
 use dump_dvb::locations::LocationsJson;
 use dump_dvb::telegrams::r09::R09SaveTelegram;
@@ -14,17 +15,19 @@ use std::fs::{write, File};
 
 use clap::Parser;
 use geojson::{Feature, FeatureCollection, Geometry, JsonObject, JsonValue, Value};
-use crate::structs::CrayonArgs;
 
 fn main() {
     let cli = Cli::parse();
+    // set verbosity level
+    println!("{:?}", cli.verbose);
 
+    // run subcommand
     match cli.command {
         Command::Correlate(opts) => stops::correlate_cmd(opts),
         Command::Merge(opts) => merge(opts),
         Command::StopsToGeo(opts) => stops2geo(opts),
         Command::Filter(opts) => filter_cmd(opts),
-        Command::Crayon(opts) => invoke_crayon(opts)
+        Command::Crayon(opts) => invoke_crayon(opts),
     }
 }
 
@@ -58,25 +61,15 @@ fn stops2geo(opts: StopsToGeoArgs) {
 }
 
 fn read_telegrams(paths: Vec<String>) -> Box<dyn Iterator<Item = R09SaveTelegram>> {
-    Box::new(paths
-        .into_iter()
-        .map(|p| File::open(p).expect("couldn't open file"))
-        .map(csv::Reader::from_reader)
-        .map(|r| r.into_deserialize())
-        .flat_map(|tg| {
-            // TODO proper result<Option<>, > handling
-            tg.filter_map(|t| {
-                match t {
-                    Ok(data) => {
-                        data
-                    },
-                    Err(e) => {
-                        println!("error {:?}", e);
-                        None
-                    }
-                }
-            })
-        }))
+    Box::new(
+        paths
+            .into_iter()
+            .map(|p| File::open(p).expect("couldn't open file"))
+            .map(csv::Reader::from_reader)
+            .flat_map(|r| r.into_deserialize())
+            // TODO proper Result<Option<_>,_> handling
+            .map(|tg| tg.ok().unwrap()),
+    )
 }
 
 fn get_features(locs: &LocationsJson) -> Vec<Feature> {

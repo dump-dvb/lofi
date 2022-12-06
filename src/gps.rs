@@ -15,6 +15,10 @@ pub struct GpsPoint {
     pub lat: f64,
     pub lon: f64,
     pub elevation: Option<f64>,
+    pub accuracy: Option<f64>,
+    pub vertical_accuracy: Option<f64>,
+    pub bearing: Option<f64>,
+    pub speed: Option<f64>,
 }
 
 #[derive(Clone, Debug)]
@@ -33,10 +37,10 @@ struct Location {
     latitude: f64,
     longitude: f64,
     altitude: f64,
-    _accuracy: f64,
-    _vertical_accuracy: f64,
-    _bearing: f64,
-    _speed: f64,
+    accuracy: f64,
+    vertical_accuracy: f64,
+    bearing: f64,
+    speed: f64,
     #[serde(rename = "elapsedMs")]
     _elapsed_ms: i32,
     _provider: String,
@@ -54,6 +58,10 @@ impl Gps {
                 lat: p.location.latitude,
                 lon: p.location.longitude,
                 elevation: Some(p.location.altitude),
+                accuracy: Some(p.location.accuracy),
+                vertical_accuracy: Some(p.location.vertical_accuracy),
+                bearing: Some(p.location.bearing),
+                speed: Some(p.location.speed),
             });
         }
     }
@@ -87,6 +95,11 @@ impl Gps {
                             .timestamp(),
                             None => break,
                         },
+
+                        accuracy: point.pdop,
+                        vertical_accuracy: point.vdop,
+                        bearing: None,
+                        speed: point.speed,
                     };
 
                     self.insert(soul.timestamp, soul);
