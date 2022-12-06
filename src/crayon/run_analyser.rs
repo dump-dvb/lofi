@@ -1,12 +1,13 @@
 use chrono::Duration;
 
-use dump_dvb::locations::graph::{LineSegment, RegionGraph};
+use dump_dvb::locations::graph::{LineSegment, RegionGraph, Position};
 use dump_dvb::locations::RegionReportLocations;
 use dump_dvb::telegrams::r09::R09SaveTelegram;
 use geo_types::{coord, Geometry, GeometryCollection, Line, Point};
 use geojson::FeatureCollection;
 use geojson::Feature; 
 use random_color::RandomColor;
+use std::hash::Hash;
 use std::{
     collections::{HashMap, HashSet},
     fs,
@@ -114,6 +115,22 @@ pub fn find_ideal_track(
     }
 }
 
+pub fn convert_list (vec_data: Vec<(f64, f64)>) -> HashMap<String, Position> {
+    let mut transposed_coords: HashMap<String, Position> = HashMap::new();
+
+    for (i, coords) in vec_data.iter().enumerate() {
+        let position = Position {
+            lat: coords.0 as f32,
+            lon: coords.1 as f32,
+            properties: HashMap::new()
+        };
+
+        transposed_coords.insert((((i as f32) / (vec_data.len() as f32) * 100f32) as i32).to_string(), position);
+    }
+
+    return transposed_coords;
+}
+
 pub fn generate_positions(
     line_graph: &GraphLines,
     graph_time: &GraphRaterTime,
@@ -150,6 +167,8 @@ pub fn generate_positions(
                             }
                             None => 120,
                         };
+
+                        // here we are getting a list of coordinates 
                         let mut vec_data = find_ideal_track(
                             lines,
                             &overpass_turbo,
@@ -159,10 +178,11 @@ pub fn generate_positions(
                         vec_data.insert(0, previous_coords);
                         vec_data.push(next_coords);
 
+
                         let line_segment = LineSegment {
                             historical_time: mean_time,
                             next_reporting_point: *next,
-                            positions: vec_data,
+                            positions: convert_list(vec_data),
                         };
 
                         value.push(line_segment);
@@ -187,7 +207,7 @@ pub fn generate_positions(
                         let line_segment = LineSegment {
                             historical_time: mean_time,
                             next_reporting_point: *next,
-                            positions: vec_data,
+                            positions: convert_list(vec_data),
                         };
                         export.insert(*previous, vec![line_segment]);
                     }
@@ -198,6 +218,7 @@ pub fn generate_positions(
             }
         }
     }
+    println!("{:?}", &export);
 
     export
 }
@@ -255,7 +276,9 @@ pub fn rate(count: i32, times: &Vec<i64>) -> f64 {
 
     const EXPECTED_AVERAGE_TRAVEL_TIME: f64 = 120f64;
 
-    let rating = 50.0f64 * std::f64::consts::E.powf(-1f64 * f64::abs(mean - EXPECTED_AVERAGE_TRAVEL_TIME)) + 0.01f64 * (count as f64);
+    let rating = 
+        50.0f64 * std::f64::consts::E.powf(-1f64 * f64::abs(mean - EXPECTED_AVERAGE_TRAVEL_TIME)) 
+        + 0.01f64 * (count as f64);
 
     println!("rating: {}, mean: {}, count: {}", &rating, &rating, count);
 
@@ -264,6 +287,7 @@ pub fn rate(count: i32, times: &Vec<i64>) -> f64 {
 
 pub fn finalise(rated_graph: &GraphRater, time_graph: &GraphRaterTime) -> Graph {
     const RATING_THRESHHOLD: f64 = 2f64;
+    const TIME_THRESHHOLD: u64 = 300;
 
     let mut graph = HashMap::<i32, Vec<i32>>::new();
     let mut average_list = Vec::new();
@@ -352,10 +376,10 @@ pub fn geojson_draw_points(export: &RegionGraph, export_file: &str) {
             let key = "color".to_string();
             properties.insert(key, geojson::JsonValue::from(RandomColor::new().to_hex()));
 
-            for point in &segment.positions {
+            for (key, point) in &segment.positions {
                 let geometry = geojson::Geometry::new(geojson::Value::Point(vec![
-                    point.1 as f64,
-                    point.0 as f64,
+                    point.lat as f64,
+                    point.lon as f64,
                 ]));
                 let feature = Feature {
                     bbox: None,
