@@ -110,7 +110,7 @@ pub struct CorrelateArgs {
     pub gps_legacy: Vec<String>,
     /// region number, see https://click.dvb.solutions/
     #[clap(short, long)]
-    pub region: i32,
+    pub region: Vec<i32>,
     /// wartrammer-40k json file with measured public transport runs
     #[clap(short, long)]
     pub wartrammer: Option<Vec<String>>,
@@ -124,7 +124,7 @@ pub struct CorrelateArgs {
     /// values result in more transmission position matched at the cost of accuracy.
     #[clap(long, default_value = "5")]
     pub corr_window: i64,
-    /// Telegram frequency in the region (in Hz), see https://click.dvb.solutions/
+    /// Telegram frequency in the region (in Hz), For the frequencies see https://docs.dvb.solutions/
     #[clap(long)]
     pub meta_frequency: Option<u64>,
     /// Region name string, see https://click.dvb.solutions/
