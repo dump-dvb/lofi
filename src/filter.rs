@@ -1,5 +1,5 @@
-use dump_dvb::measurements::FinishedMeasurementInterval;
-use dump_dvb::telegrams::r09::R09SaveTelegram;
+use tlms::measurements::FinishedMeasurementInterval;
+use tlms::telegrams::r09::R09SaveTelegram;
 use std::fs::File;
 
 use crate::read_telegrams;

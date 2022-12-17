@@ -1,7 +1,7 @@
 use clap::{Args, Parser, Subcommand};
 
-use dump_dvb::locations::ReportLocation;
-use dump_dvb::telegrams::r09::R09SaveTelegram;
+use tlms::locations::ReportLocation;
+use tlms::telegrams::r09::R09SaveTelegram;
 
 use crate::gps::GpsPoint;
 

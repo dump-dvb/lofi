@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.0", features = ["derive"] }
 csv = "1.1.6"
-dump-dvb = { git = "https://github.com/dump-dvb/dump-dvb.rs", version = "0.5" }
+tlms = { git = "https://github.com/tlm-solutions/tlms.rs", version = "*", features = ["locations", "telegrams", "measurements"] }
 overpass-turbo = { git = "https://github.com/revol-xut/overpass-turbo.rs", version = "0.1", features = [ "simple"]}
 gpx = "0.8.6"
 log = "0.4.7"

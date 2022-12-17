@@ -8,8 +8,8 @@ use crate::filter::filter_cmd;
 use crate::structs::CrayonArgs;
 use crate::structs::{Cli, Command, MergeArgs, StopsToGeoArgs};
 
-use dump_dvb::locations::LocationsJson;
-use dump_dvb::telegrams::r09::R09SaveTelegram;
+use tlms::locations::LocationsJson;
+use tlms::telegrams::r09::R09SaveTelegram;
 
 use std::fs::{write, File};
 

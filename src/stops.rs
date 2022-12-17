@@ -2,16 +2,16 @@ use crate::gps::{Gps, GpsPoint};
 use crate::structs::{CorrTelegram, CorrelateArgs};
 use crate::{filter, get_features, read_telegrams};
 
-use dump_dvb::locations::{
+use tlms::locations::{
     LocationsJson, RegionMetaInformation, RegionReportLocations, ReportLocation, REGION_META_MAP,
 };
-use dump_dvb::telegrams::r09::R09SaveTelegram;
+use tlms::telegrams::r09::R09SaveTelegram;
 
 use std::collections::HashMap;
 use std::fs::write;
 
 use geojson::FeatureCollection;
-use log::{error, info};
+use log::{error, info, warn};
 
 // Handles `lofi correlate`
 pub fn correlate_cmd(cli: CorrelateArgs) {
@@ -98,27 +98,30 @@ pub fn correlate_cmd(cli: CorrelateArgs) {
             }),
         });
 
-    // let region_meta = match REGION_META_MAP.get(&cli.region) {
-    //     Some(regio) => {
-    //         info!("region no. {:?} lookup succesful: {:?}", reg, regio);
-    //         regio.clone()
-    //     }
-    //     None => {
-    //         warn!("Region {:?} is unknown! Is dump-dvb.rs updated?", cli.region);
-    //         warn!("Lookup failed, populated region meta information from cli!");
-    //         RegionMetaInformation {
-    //             frequency: cli.meta_frequency,
-    //             city_name: cli.meta_city,
-    //             type_r09: None,
-    //             lat: None,
-    //             lon: None,
-    //         }
-    //     }
-    // };
+    for regio in cli.region {
+        let region_meta = match REGION_META_MAP.get(&cli.region) {
+            Some(regio) => {
+                info!("region no. {:?} lookup succesful: {:?}", reg, regio);
+                regio.clone()
+            }
+            None => {
+                warn!(
+                    "Region {:?} is unknown! Is dump-dvb.rs updated?",
+                    cli.region
+                );
+                warn!("Lookup failed, populated region meta information from cli!");
+                RegionMetaInformation {
+                    frequency: cli.meta_frequency,
+                    city_name: cli.meta_city,
+                    type_r09: None,
+                    lat: None,
+                    lon: None,
+                }
+            }
+        };
+    }
 
     let stops = LocationsJson::construct(
-        //HashMap::from([(cli.region, reg)]),
-        //HashMap::from([(cli.region, region_meta)]),
         region_data,
         region_meta,
         Some(String::from(env!("CARGO_PKG_NAME"))),
