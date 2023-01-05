@@ -1,6 +1,6 @@
+use std::fs::File;
 use tlms::measurements::FinishedMeasurementInterval;
 use tlms::telegrams::r09::R09SaveTelegram;
-use std::fs::File;
 
 use crate::read_telegrams;
 use crate::structs::FilterArgs;

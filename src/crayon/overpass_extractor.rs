@@ -1,12 +1,12 @@
-use std::collections::HashMap;
 use serde::Deserialize;
+use std::collections::HashMap;
 
 use overpass_turbo::model::{Element, OverpassTurbo};
-use overpass_turbo::simplified::{SimplifiedOverpassTurbo, SimplifiedElement};
+use overpass_turbo::simplified::{SimplifiedElement, SimplifiedOverpassTurbo};
 
 #[derive(Deserialize)]
 pub struct Ref {
-    pub r#ref: String
+    pub r#ref: String,
 }
 
 pub type OverpassIntermediate = HashMap<i32, Vec<Vec<(f64, f64)>>>;
@@ -19,7 +19,7 @@ pub fn extract_from_overpass(file: &str) -> OverpassIntermediate {
             Element::Relation(rel) => {
                 let mut new_members = Vec::new();
                 for member in &rel.members {
-                    if member.role != "stop" &&  member.role != "platform" {
+                    if member.role != "stop" && member.role != "platform" {
                         new_members.push(member.clone());
                     }
                 }
@@ -34,7 +34,7 @@ pub fn extract_from_overpass(file: &str) -> OverpassIntermediate {
     x.prune_nodes();
     x.prune_ways();
 
-    // HashMap<String, Vec<Vec<(f32, f32)>> 
+    // HashMap<String, Vec<Vec<(f32, f32)>>
     let mut coords_by_line: HashMap<i32, Vec<Vec<(f64, f64)>>> = HashMap::new();
 
     for (_key, value) in x.iter() {
@@ -42,16 +42,14 @@ pub fn extract_from_overpass(file: &str) -> OverpassIntermediate {
             SimplifiedElement::Relation(relation) => {
                 let line;
                 match serde_json::from_value::<Ref>(relation.tags.as_ref().unwrap().clone()) {
-                    Ok(tags) => {
-                        match tags.r#ref.parse::<i32>() {
-                            Ok(number) => {
-                                line = number;
-                            }
-                            Err(_) => {
-                                continue;
-                            }
+                    Ok(tags) => match tags.r#ref.parse::<i32>() {
+                        Ok(number) => {
+                            line = number;
                         }
-                    }
+                        Err(_) => {
+                            continue;
+                        }
+                    },
                     Err(_) => {
                         continue;
                     }

@@ -77,7 +77,7 @@ pub struct CrayonArgs {
     pub telegrams: Vec<String>,
     /// region number, see https://click.dvb.solutions/
     #[clap(short, long)]
-    pub region: i32,
+    pub region: i64,
     /// JSON outut file in stop-names format, if not specified result is printed on stdout
     #[clap(short, long)]
     pub stops_json: String,
@@ -93,9 +93,7 @@ pub struct CrayonArgs {
     /// Geojson output for diagnostics
     #[clap(short = 'p', long)]
     pub geojson_points: Option<String>,
-
 }
-
 
 #[derive(Args, Debug)]
 pub struct CorrelateArgs {
@@ -110,7 +108,7 @@ pub struct CorrelateArgs {
     pub gps_legacy: Vec<String>,
     /// region number, see https://click.dvb.solutions/
     #[clap(short, long)]
-    pub region: Vec<i32>,
+    pub region: Vec<i64>,
     /// wartrammer-40k json file with measured public transport runs
     #[clap(short, long)]
     pub wartrammer: Option<Vec<String>>,

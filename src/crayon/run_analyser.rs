@@ -1,17 +1,17 @@
-use chrono::Duration;
-
-use tlms::locations::graph::{LineSegment, RegionGraph};
-use tlms::locations::RegionReportLocations;
-use tlms::telegrams::r09::R09SaveTelegram;
-use geo_types::{coord, Geometry, GeometryCollection, Line, Point};
-use geojson::FeatureCollection;
-use geojson::Feature; 
-use random_color::RandomColor;
-use std::hash::Hash;
 use std::{
     collections::{HashMap, HashSet},
     fs,
 };
+
+use chrono::Duration;
+use geo_types::{coord, Geometry, GeometryCollection, Line, Point};
+use geojson::Feature;
+use geojson::FeatureCollection;
+use random_color::RandomColor;
+
+use tlms::locations::graph::{LineSegment, Position, RegionGraph};
+use tlms::locations::RegionReportLocations;
+use tlms::telegrams::r09::R09SaveTelegram;
 
 pub type Coordinate = (f64, f64);
 
@@ -27,7 +27,7 @@ pub type OverPassTurboExport = HashMap<i32, Vec<Vec<(f64, f64)>>>;
 
 const TIME_THRESHOLD: i64 = 10;
 
-pub fn find_closest_on_track(segment: &Vec<(f64, f64)>, coordinate: &(f64, f64)) -> (usize, f64){
+pub fn find_closest_on_track(segment: &Vec<(f64, f64)>, coordinate: &(f64, f64)) -> (usize, f64) {
     let distance = |x: &(f64, f64), y: &(f64, f64)| -> f64 {
         f64::sqrt((x.0 - y.0).powf(2f64) + (x.1 - y.1).powf(2f64))
     };
@@ -46,15 +46,13 @@ pub fn find_closest_on_track(segment: &Vec<(f64, f64)>, coordinate: &(f64, f64))
     (index, best_distance)
 }
 
-
-// This function goes over all the lines exported from overpass-turbo 
+// This function goes over all the lines exported from overpass-turbo
 pub fn find_ideal_track(
     lines: &HashSet<i32>,
     line_coordinates: &OverPassTurboExport,
     previous_coords: &Coordinate,
     next_coords: &Coordinate,
 ) -> Vec<Coordinate> {
-
     let mut best_line_index = 0;
     let mut best_line_config = (0, 0, 0);
     let mut best_line_distance = f64::MAX;
@@ -69,15 +67,16 @@ pub fn find_ideal_track(
                 let (start_index, start_distance) = find_closest_on_track(segment, previous_coords);
                 let (end_index, end_distance) = find_closest_on_track(segment, next_coords);
 
-                if start_index < end_index && (start_distance + end_distance) < best_segment_distance {
+                if start_index < end_index
+                    && (start_distance + end_distance) < best_segment_distance
+                {
                     best_segment_distance = start_distance + end_distance;
                     best_segment_index = segment_number;
                     best_segment_interval = (start_index, end_index);
-
                 }
             }
 
-            if best_segment_distance < best_line_distance{
+            if best_segment_distance < best_line_distance {
                 println!("{}", &best_segment_distance);
                 best_line_distance = best_segment_distance;
                 best_line_index = *line;
@@ -92,15 +91,17 @@ pub fn find_ideal_track(
 
     if best_line_distance < f64::MAX {
         let mut vec: Vec<Coordinate> = Vec::new();
-        line_coordinates.get(&(best_line_index as i32)).map(|lines| {
-            for (_i, point) in lines[best_line_config.0][best_line_config.1..best_line_config.2]
-                .iter()
-                .enumerate()
-            {
-                vec.push(*point);
-            }
-            [best_line_config.0]
-        });
+        line_coordinates
+            .get(&(best_line_index as i32))
+            .map(|lines| {
+                for (_i, point) in lines[best_line_config.0][best_line_config.1..best_line_config.2]
+                    .iter()
+                    .enumerate()
+                {
+                    vec.push(*point);
+                }
+                [best_line_config.0]
+            });
 
         println!(
             "ideal config {} {:?} distance: {} points: {}",
@@ -111,21 +112,24 @@ pub fn find_ideal_track(
         );
         vec
     } else {
-        return Vec::new()
+        return Vec::new();
     }
 }
 
-pub fn convert_list (vec_data: Vec<(f64, f64)>) -> HashMap<String, Position> {
+pub fn convert_list(vec_data: Vec<(f64, f64)>) -> HashMap<String, Position> {
     let mut transposed_coords: HashMap<String, Position> = HashMap::new();
 
     for (i, coords) in vec_data.iter().enumerate() {
         let position = Position {
             lat: coords.0 as f32,
             lon: coords.1 as f32,
-            properties: HashMap::new()
+            properties: HashMap::new(),
         };
 
-        transposed_coords.insert((((i as f32) / (vec_data.len() as f32) * 100f32) as i32).to_string(), position);
+        transposed_coords.insert(
+            (((i as f32) / (vec_data.len() as f32) * 100f32) as i32).to_string(),
+            position,
+        );
     }
 
     return transposed_coords;
@@ -163,12 +167,12 @@ pub fn generate_positions(
                     Some(value) => {
                         let mean_time = match graph_time.get(&(*previous, *next)) {
                             Some(times) => {
-                                ((times.iter().sum::<i64>() as f64 / times.len() as f64)) as u32
+                                (times.iter().sum::<i64>() as f64 / times.len() as f64) as u32
                             }
                             None => 120,
                         };
 
-                        // here we are getting a list of coordinates 
+                        // here we are getting a list of coordinates
                         let mut vec_data = find_ideal_track(
                             lines,
                             &overpass_turbo,
@@ -177,7 +181,6 @@ pub fn generate_positions(
                         );
                         vec_data.insert(0, previous_coords);
                         vec_data.push(next_coords);
-
 
                         let line_segment = LineSegment {
                             historical_time: mean_time,
@@ -190,7 +193,7 @@ pub fn generate_positions(
                     None => {
                         let mean_time = match graph_time.get(&(*previous, *next)) {
                             Some(times) => {
-                                ((times.iter().sum::<i64>() as f64 / times.len() as f64)) as u32
+                                (times.iter().sum::<i64>() as f64 / times.len() as f64) as u32
                             }
                             None => 120,
                         };
@@ -276,8 +279,8 @@ pub fn rate(count: i32, times: &Vec<i64>) -> f64 {
 
     const EXPECTED_AVERAGE_TRAVEL_TIME: f64 = 120f64;
 
-    let rating = 
-        50.0f64 * std::f64::consts::E.powf(-1f64 * f64::abs(mean - EXPECTED_AVERAGE_TRAVEL_TIME)) 
+    let rating = 50.0f64
+        * std::f64::consts::E.powf(-1f64 * f64::abs(mean - EXPECTED_AVERAGE_TRAVEL_TIME))
         + 0.01f64 * (count as f64);
 
     println!("rating: {}, mean: {}, count: {}", &rating, &rating, count);
@@ -365,7 +368,8 @@ pub fn geojson_draw_graph(graph: &Graph, region: &RegionReportLocations, export_
     fs::write(
         export_file,
         serde_json::to_string(&feature_collection).unwrap(),
-    ).ok();
+    )
+    .ok();
 }
 
 pub fn geojson_draw_points(export: &RegionGraph, export_file: &str) {
@@ -404,5 +408,6 @@ pub fn geojson_draw_points(export: &RegionGraph, export_file: &str) {
     fs::write(
         export_file,
         serde_json::to_string(&feature_collection).unwrap(),
-    ).ok();
+    )
+    .ok();
 }

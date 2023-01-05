@@ -1,10 +1,9 @@
 use gpx::Gpx;
 use serde::Deserialize;
 
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
-use std::collections::HashMap;
-
 
 // Public Structs
 // Only parts relevant for the interpolation are here
@@ -47,22 +46,25 @@ struct Location {
 }
 
 impl Gps {
-
     pub fn insert_from_legacy(&mut self, filepath: &str) {
         let file = File::open(filepath).expect("Could not open legacy json file");
         let rdr = BufReader::new(file);
-        let points: Vec<GpsJson> = serde_json::from_reader(rdr).expect("Could not deserialize json");
+        let points: Vec<GpsJson> =
+            serde_json::from_reader(rdr).expect("Could not deserialize json");
         for p in points {
-            self.insert(p.time, GpsPoint {
-                timestamp: p.time,
-                lat: p.location.latitude,
-                lon: p.location.longitude,
-                elevation: Some(p.location.altitude),
-                accuracy: Some(p.location.accuracy),
-                vertical_accuracy: Some(p.location.vertical_accuracy),
-                bearing: Some(p.location.bearing),
-                speed: Some(p.location.speed),
-            });
+            self.insert(
+                p.time,
+                GpsPoint {
+                    timestamp: p.time,
+                    lat: p.location.latitude,
+                    lon: p.location.longitude,
+                    elevation: Some(p.location.altitude),
+                    accuracy: Some(p.location.accuracy),
+                    vertical_accuracy: Some(p.location.vertical_accuracy),
+                    bearing: Some(p.location.bearing),
+                    speed: Some(p.location.speed),
+                },
+            );
         }
     }
 
@@ -130,5 +132,4 @@ impl Gps {
     pub fn empty() -> Gps {
         Gps(HashMap::new())
     }
-
 }
