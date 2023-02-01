@@ -29,7 +29,7 @@ pub fn filter(
         wt.append(&mut wt_file);
     }
 
-    eprintln!("got wt: {:#?}", wt);
+    eprintln!("got wt: {wt:#?}");
 
     Box::new(unfiltered.filter(move |t| wt.iter().any(|f| f.fits(t))))
 }

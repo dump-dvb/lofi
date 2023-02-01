@@ -55,7 +55,7 @@ fn stops2geo(opts: StopsToGeoArgs) {
             write(path, geojson_string).expect("Couldn't write geojson");
         }
         None => {
-            println!("{}", geojson_string);
+            println!("{geojson_string}");
         }
     }
 }
@@ -77,7 +77,7 @@ fn get_features(locs: &LocationsJson) -> Vec<Feature> {
     for (_reg, v) in locs.data.iter() {
         for (mp, loc) in v {
             let mut properties = JsonObject::new();
-            let propval = format!("{}", mp);
+            let propval = format!("{mp}");
             properties.insert("name".to_string(), JsonValue::from(propval));
             features.push(Feature {
                 bbox: None,

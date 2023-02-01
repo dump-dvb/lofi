@@ -1,6 +1,6 @@
 /target
 result
-/tmp
+/.tmp
 .idea
 .json
 .envrc

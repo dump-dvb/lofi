@@ -7,11 +7,11 @@ use tlms::locations::{
 };
 use tlms::telegrams::r09::R09SaveTelegram;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::write;
 
 use geojson::FeatureCollection;
-use log::{error, info, warn};
+use log::{info, trace, warn};
 
 // Handles `lofi correlate`
 pub fn correlate_cmd(cli: CorrelateArgs) {
@@ -37,12 +37,13 @@ pub fn correlate_cmd(cli: CorrelateArgs) {
     info!("Matched {} telegrams", ctg.len());
 
     // for every corrtelegram, interpolate the position from gps track
-    let positions: Vec<((i32, i32), ReportLocation)> =
+    let positions: Vec<(i64, i32, ReportLocation)> =
         ctg.iter().map(|x| x.interpolate_position()).collect();
 
-    // dedups locations
-    let mut deduped_positions: HashMap<(i32, i32), ReportLocation> = HashMap::new();
-    for ((reg, mp), pos) in positions {
+    // dedups locations, take average between new telegram and already existing one, if
+    // nonexistent, then insert
+    let mut deduped_positions: HashMap<(i64, i32), ReportLocation> = HashMap::new();
+    for (reg, mp, pos) in positions {
         deduped_positions
             .entry((reg, mp))
             .and_modify(|e| e.lat = (pos.lat + e.lat) / 2_f64)
@@ -50,76 +51,52 @@ pub fn correlate_cmd(cli: CorrelateArgs) {
             .or_insert(pos);
     }
 
-    fn project_epsg3857(loc: &ReportLocation) -> ReportLocation {
-        const EARTH_RADIUS_M: f64 = 6_378_137_f64;
-        let x = EARTH_RADIUS_M * loc.lon.to_radians();
-        let y =
-            ((loc.lat.to_radians() / 2. + std::f64::consts::PI / 4.).tan()).ln() * EARTH_RADIUS_M;
+    // update locations with epsg3857 coordinates
+    deduped_positions
+        .values_mut()
+        .into_iter()
+        .for_each(|loc| loc.update_epsg3857());
 
-        ReportLocation {
-            lat: loc.lat,
-            lon: loc.lon,
-            properties: match serde_json::from_str(&format!(
-                "{{ \"epsg3857\": {{ \"x\":{}, \"y\":{} }} }}",
-                x, y
-            )) {
-                Ok(val) => val,
-                Err(whoopsie) => {
-                    error!("convert to pseudo-mercator: {}", whoopsie);
-                    serde_json::Value::Null
-                }
-            },
+    // Constructing the stops.json
+    // colect all deduped loc positions
+    let mut region_data: HashMap<i64, RegionReportLocations> = HashMap::new();
+    let mut regions: HashSet<i64> = HashSet::new();
+    for ((reg, mp), pos) in &deduped_positions {
+        region_data
+            .entry(*reg) // get the region value
+            .or_insert(HashMap::from([(*mp, pos.clone())])) // If not exists, put hashmap as value
+            .insert(*mp, pos.clone()); // or just add the mp, ReportLocation pair
+
+        // save the region list while we at it, so we can quickly add the `RegionMetaInformation`
+        // after
+        if regions.insert(*reg) {
+            trace!("Found region no. {} from parsing telegrams", reg)
         }
     }
 
-    let deduped_positions: HashMap<i32, ReportLocation> = deduped_positions
-        .into_iter()
-        .map(|(k, v)| (k, project_epsg3857(&v)))
-        .collect();
-
-    // Constructing the stops.json
-    let mut all_reg: RegionReportLocations = HashMap::new();
-    for ((reg, mp), pos) in deduped_positions {
-        all_reg.entry((reg, mp)).or_insert(pos);
-    }
-
-    let region_meta: HashMap<i32, RegionMetaInformation> = HashMap::new();
-
-    cli.region
+    let region_meta: HashMap<i64, RegionMetaInformation> = regions
         .iter()
-        .map(|reg| match REGION_META_MAP.get(&reg) {
-            Some(rrr) => region_meta.entry(*reg).or_insert(rrr.clone()),
-            None => region_meta.entry(*reg).or_insert(RegionMetaInformation {
-                frequency: cli.meta_frequency,
-                city_name: cli.meta_city,
-                type_r09: None,
-                lat: None,
-                lon: None,
-            }),
-        });
-
-    for regio in cli.region {
-        let region_meta = match REGION_META_MAP.get(&cli.region) {
-            Some(regio) => {
-                info!("region no. {:?} lookup succesful: {:?}", reg, regio);
-                regio.clone()
-            }
+        .map(|reg| match REGION_META_MAP.get(reg) {
+            Some(r) => (*reg, r.clone()),
             None => {
+                warn!("Could not find region no. {}! Is tlms.rs updated?", reg);
                 warn!(
-                    "Region {:?} is unknown! Is dump-dvb.rs updated?",
-                    cli.region
+                    "filling RegionMetaInformation with null values for region {}!",
+                    reg
                 );
-                warn!("Lookup failed, populated region meta information from cli!");
-                RegionMetaInformation {
-                    frequency: cli.meta_frequency,
-                    city_name: cli.meta_city,
-                    type_r09: None,
-                    lat: None,
-                    lon: None,
-                }
+                (
+                    *reg,
+                    RegionMetaInformation {
+                        frequency: None,
+                        city_name: None,
+                        type_r09: None,
+                        lat: None,
+                        lon: None,
+                    },
+                )
             }
-        };
-    }
+        })
+        .collect();
 
     let stops = LocationsJson::construct(
         region_data,

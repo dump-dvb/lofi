@@ -12,6 +12,7 @@ pub struct CorrTelegram {
     timestamp: i64,
     location_before: GpsPoint,
     location_after: GpsPoint,
+    region: i64,
 }
 
 impl CorrTelegram {
@@ -21,11 +22,13 @@ impl CorrTelegram {
             timestamp: tg.time.timestamp(),
             location_before: before,
             location_after: after,
+            region: tg.region,
         }
     }
 
-    pub fn interpolate_position(&self) -> (i32, ReportLocation) {
+    pub fn interpolate_position(&self) -> (i64, i32, ReportLocation) {
         (
+            self.region,
             self.transmission_position,
             ReportLocation {
                 lat: self.location_before.lat
@@ -106,9 +109,6 @@ pub struct CorrelateArgs {
     /// Legacy format gps data, you most probably don't need that
     #[clap(long)]
     pub gps_legacy: Vec<String>,
-    /// region number, see https://click.dvb.solutions/
-    #[clap(short, long)]
-    pub region: Vec<i64>,
     /// wartrammer-40k json file with measured public transport runs
     #[clap(short, long)]
     pub wartrammer: Option<Vec<String>>,
@@ -122,12 +122,6 @@ pub struct CorrelateArgs {
     /// values result in more transmission position matched at the cost of accuracy.
     #[clap(long, default_value = "5")]
     pub corr_window: i64,
-    /// Telegram frequency in the region (in Hz), For the frequencies see https://docs.dvb.solutions/
-    #[clap(long)]
-    pub meta_frequency: Option<u64>,
-    /// Region name string, see https://click.dvb.solutions/
-    #[clap(long)]
-    pub meta_city: Option<String>,
 }
 
 #[derive(Args, Debug)]
