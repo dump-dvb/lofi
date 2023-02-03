@@ -35,7 +35,7 @@ pub(crate) fn correlate_lines(args: CrayonArgs) {
                 current_day = telegram.time.date().day();
             }
 
-            if RequestStatus::from_i16(telegram.request_status).unwrap()
+            if RequestStatus::try_from(telegram.request_status).unwrap()
                 != RequestStatus::DoorClosed
             {
                 daily_telegrams.push(telegram);
