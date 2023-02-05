@@ -1,16 +1,21 @@
-mod overpass_extractor;
-mod run_analyser;
-
-use crate::read_telegrams;
-use crate::structs::CrayonArgs;
+pub mod overpass_extractor;
+pub mod run_analyser;
 
 use chrono::Datelike;
 use std::collections::HashMap;
 use std::fs;
-use tlms::locations::{LocationsJson, RequestStatus};
+use tlms::locations::{LocationsJson, RequestStatus, ReportLocation};
+use tlms::telegrams::r09::R09SaveTelegram;
 
 /// main function for crayon
-pub(crate) fn correlate_lines(args: CrayonArgs) {
+pub(crate) fn correlate_lines(
+    telegrams: Box<dyn Iterator<Item = R09SaveTelegram>>,
+    region: i64,
+    overpass_structs: HashMap<i32, Vec<Vec<(f64, f64)>>>,
+    region_data: HashMap<i32, ReportLocation>,
+    geojson_graph: Option<&str>,
+    geojson_points: Option<&str>
+) {
     let mut current_day = 0;
     let mut daily_telegrams = Vec::new();
     let mut graph = HashMap::new();
@@ -18,9 +23,9 @@ pub(crate) fn correlate_lines(args: CrayonArgs) {
     let mut graph_lines = HashMap::new();
 
     // iterate over all the telegrams
-    for telegram in read_telegrams(args.telegrams) {
+    for telegram in telegrams {
         // check if the telegram is from the correct region
-        if telegram.region == args.region {
+        if telegram.region == region {
             if telegram.time.date().day() != current_day {
                 println!("analysing day {:?}", &current_day);
                 // calculate shit
@@ -43,23 +48,9 @@ pub(crate) fn correlate_lines(args: CrayonArgs) {
         }
     }
 
-    let overpass_structs = overpass_extractor::extract_from_overpass(&args.overpass_turbo);
-    let region_data = match LocationsJson::from_file(&args.stops_json) {
-        Ok(locations) => match locations.data.get(&args.region) {
-            Some(data) => data.clone(),
-            None => {
-                println!("cannot read stops json");
-                return;
-            }
-        },
-        Err(e) => {
-            println!("error while trying to read overpass turbo file: {:?}", e);
-            return;
-        }
-    };
-
     let finished_graph = run_analyser::finalise(&graph, &graph_time);
-    match args.geojson_graph {
+
+    match geojson_graph {
         Some(file_path) => {
             println!("generating geojson for graph");
             run_analyser::geojson_draw_graph(&finished_graph, &region_data, &file_path);
@@ -85,7 +76,7 @@ pub(crate) fn correlate_lines(args: CrayonArgs) {
     }
 
     let mut result = HashMap::new();
-    result.insert(args.region, raw_point_graph);
+    result.insert(region, raw_point_graph);
 
     // writing graph_output
     fs::write(args.export, serde_json::to_string(&result).unwrap()).ok();

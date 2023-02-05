@@ -1,6 +1,4 @@
 use crate::gps::{Gps, GpsPoint};
-use crate::structs::{CorrTelegram, CorrelateArgs};
-use crate::{filter, get_features, read_telegrams};
 
 use tlms::locations::{
     LocationsJson, RegionMetaInformation, RegionReportLocations, ReportLocation, REGION_META_MAP,
@@ -8,30 +6,56 @@ use tlms::locations::{
 use tlms::telegrams::r09::R09SaveTelegram;
 
 use std::collections::{HashMap, HashSet};
-use std::fs::write;
 
-use geojson::FeatureCollection;
 use log::{info, trace, warn};
 
-// Handles `lofi correlate`
-pub fn correlate_cmd(cli: CorrelateArgs) {
-    info!("got args: {:?}", cli);
-    let telegrams = match cli.wartrammer {
-        Some(wt) => filter::filter(read_telegrams(cli.telegrams), wt),
-        None => read_telegrams(cli.telegrams),
-    };
+/// time difference is calculated as telegram.timestamp - gpspoint.timestamp
+#[derive(Debug)]
+pub struct CorrTelegram {
+    pub transmission_position: i32,
+    timestamp: i64,
+    location_before: GpsPoint,
+    location_after: GpsPoint,
+    region: i64,
+}
 
-    let mut gps: Gps = Gps::empty();
-    for filepath in cli.gps {
-        gps.insert_from_gpx_file(&filepath);
-    }
-    for filepath in cli.gps_legacy {
-        gps.insert_from_legacy(&filepath);
+impl CorrTelegram {
+    /// creates `CorrTelegram` from `R09SaveTelegram` and two nearest `GpsPoint`s
+    pub fn new(tg: R09SaveTelegram, before: GpsPoint, after: GpsPoint) -> CorrTelegram {
+        CorrTelegram {
+            transmission_position: tg.reporting_point,
+            timestamp: tg.time.timestamp(),
+            location_before: before,
+            location_after: after,
+            region: tg.region,
+        }
     }
 
+    /// Converts `CorrTelegram` into a tuple of region identifier, meldepunkt and linearly
+    /// interpolated location of the meldepunkt
+    pub fn interpolate_position(&self) -> (i64, i32, ReportLocation) {
+        (
+            self.region,
+            self.transmission_position,
+            ReportLocation {
+                lat: self.location_before.lat
+                    + (self.timestamp - self.location_before.timestamp) as f64
+                        / (self.location_after.timestamp + self.location_before.timestamp) as f64
+                        * (self.location_after.lat - self.location_before.lat),
+                lon: self.location_before.lon
+                    + (self.timestamp - self.location_before.timestamp) as f64
+                        / (self.location_after.timestamp + self.location_before.timestamp) as f64
+                        * (self.location_after.lon - self.location_before.lon),
+                properties: serde_json::Value::Null,
+            },
+        )
+    }
+}
+
+pub fn correlate(telegrams: Box<dyn Iterator<Item = R09SaveTelegram>>, gps: Gps, corr_window: i64) -> LocationsJson {
     // correlate telegrams to gps and for every telegram
     let ctg: Vec<CorrTelegram> = telegrams
-        .filter_map(|t| correlate_telegram(&t, &gps, cli.corr_window))
+        .filter_map(|t| correlate_telegram(&t, &gps, corr_window))
         .collect();
 
     info!("Matched {} telegrams", ctg.len());
@@ -105,19 +129,7 @@ pub fn correlate_cmd(cli: CorrelateArgs) {
         Some(String::from(env!("CARGO_PKG_VERSION"))),
     );
 
-    stops.write(&cli.stops_json);
-
-    if let Some(path) = cli.geojson {
-        let features = get_features(&stops);
-        let feature_collection = FeatureCollection {
-            bbox: None,
-            features,
-            foreign_members: None,
-        };
-        let geojson_string = feature_collection.to_string();
-
-        write(path, geojson_string).expect("Couldn't write geojson");
-    };
+    stops
 }
 
 /// Correlates the telegrams
