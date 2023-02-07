@@ -1,22 +1,19 @@
-mod crayon;
 mod filter;
 mod gps;
 mod stops;
 
 use crate::filter::filter;
-use crate::stops::correlate;
 use crate::gps::Gps;
-use crate::crayon::overpass_extractor;
-use crate::crayon::run_analyser;
+use crate::stops::correlate;
 
-use tlms::locations::LocationsJson;
+use tlms::locations::{RequestStatus, LocationsJson};
 use tlms::telegrams::r09::R09SaveTelegram;
 
 use std::fs::{write, File};
 
 use clap::{Args, Parser, Subcommand};
 use geojson::{Feature, FeatureCollection, Geometry, JsonObject, JsonValue, Value};
-use log::{info, error};
+use log::{error, info};
 
 // Clap sturcts
 #[derive(Parser, Debug)]
@@ -36,8 +33,6 @@ struct Cli {
 enum Command {
     /// Correlate R09 Telegrams to the GPS data
     Correlate(CorrelateArgs),
-    /// Correlates to every edge inside the graph a list of gps positions and historic time
-    Crayon(CrayonArgs),
     /// Merge the different stops.json-formatted files and produce windhsield-ready output
     Merge(MergeArgs),
     /// Convert stops.json to a geojson file, useful for visualizing/debugging
@@ -45,31 +40,6 @@ enum Command {
     StopsToGeo(StopsToGeoArgs),
     /// Filter the telegrams using measurement intervals from wartrammer-40k
     Filter(FilterArgs),
-}
-
-#[derive(Args, Debug)]
-struct CrayonArgs {
-    /// telegram CSV file
-    #[clap(short, long)]
-    telegrams: Vec<String>,
-    /// region number, see https://click.dvb.solutions/
-    #[clap(short, long)]
-    region: i64,
-    /// JSON outut file in stop-names format, if not specified result is printed on stdout
-    #[clap(short, long)]
-    stops_json: String,
-    /// JSON outut from overpass turbo containing all the line information
-    #[clap(short, long)]
-    overpass_turbo: String,
-    /// file where the result should be written to
-    #[clap(short, long)]
-    export: String,
-    /// Geojson output for diagnostics
-    #[clap(short = 'g', long)]
-    geojson_graph: Option<String>,
-    /// Geojson output for diagnostics
-    #[clap(short = 'p', long)]
-    geojson_points: Option<String>,
 }
 
 #[derive(Args, Debug)]
@@ -142,7 +112,6 @@ fn main() {
         Command::Merge(opts) => merge(opts),
         Command::StopsToGeo(opts) => stops2geo(opts),
         Command::Filter(opts) => filter_cmd(opts),
-        Command::Crayon(opts) => invoke_crayon(opts),
     }
 }
 
@@ -249,36 +218,4 @@ fn get_features(locs: &LocationsJson) -> Vec<Feature> {
     }
 
     features
-}
-
-fn invoke_crayon(args: CrayonArgs) {
-    let telegrams = read_telegrams(args.telegrams);
-
-    let overpass_structs = overpass_extractor::extract_from_overpass(&args.overpass_turbo);
-    let region_data = match LocationsJson::from_file(&args.stops_json) {
-        Ok(locations) => match locations.data.get(&args.region) {
-            Some(data) => data.clone(),
-            None => {
-                error!("cannot read stops json");
-                return;
-            }
-        },
-        Err(e) => {
-            error!("error while trying to read overpass turbo file: {:?}", e);
-            return;
-        }
-    };
-
-    match args.geojson_graph {
-        Some(file_path) => {
-            println!("generating geojson for graph");
-            run_analyser::geojson_draw_graph(&finished_graph, &region_data, &file_path);
-        }
-        None => {
-            println!("no graph produced!");
-        }
-    }
-
-
-    crayon::correlate_lines(telegrams, args.region, overpass_structs, region_data, args.geojson_graph, args.geojson_points);
 }

@@ -8,8 +8,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.0", features = ["derive"] }
 csv = "1.1.6"
-tlms = { git = "https://github.com/tlm-solutions/tlms.rs", version = "*", features = ["locations", "telegrams", "measurements"] }
-overpass-turbo = { git = "https://github.com/revol-xut/overpass-turbo.rs", version = "0.1", features = [ "simple"]}
+tlms = { git = "https://github.com/tlm-solutions/tlms.rs", branch = "lofi-updates", version = "*", features = ["locations", "telegrams", "measurements"] }
 gpx = "0.8.6"
 log = "0.4.7"
 stderrlog = "0.5.3"
@@ -17,6 +16,6 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "*"
 chrono = { version = "*", features = ["serde", "rustc-serialize"] }
 uuid = "*"
-geojson =  "*"
+geojson =  "0.24"
 geo-types = "*"
 random_color = "0.6"
