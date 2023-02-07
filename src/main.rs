@@ -1,12 +1,12 @@
+mod correlate;
 mod filter;
 mod gps;
-mod correlate;
 
+use crate::correlate::correlate;
 use crate::filter::filter;
 use crate::gps::Gps;
-use crate::correlate::correlate;
 
-use tlms::locations::{RequestStatus, LocationsJson};
+use tlms::locations::{LocationsJson, RequestStatus};
 use tlms::telegrams::r09::R09SaveTelegram;
 
 use std::fs::{write, File};

@@ -52,7 +52,11 @@ impl CorrTelegram {
     }
 }
 
-pub fn correlate(telegrams: Box<dyn Iterator<Item = R09SaveTelegram>>, gps: Gps, corr_window: i64) -> LocationsJson {
+pub fn correlate(
+    telegrams: Box<dyn Iterator<Item = R09SaveTelegram>>,
+    gps: Gps,
+    corr_window: i64,
+) -> LocationsJson {
     // correlate telegrams to gps and for every telegram
     let ctg: Vec<CorrTelegram> = telegrams
         .filter_map(|t| correlate_telegram(&t, &gps, corr_window))
