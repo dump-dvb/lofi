@@ -1,10 +1,10 @@
 mod filter;
 mod gps;
-mod stops;
+mod correlate;
 
 use crate::filter::filter;
 use crate::gps::Gps;
-use crate::stops::correlate;
+use crate::correlate::correlate;
 
 use tlms::locations::{RequestStatus, LocationsJson};
 use tlms::telegrams::r09::R09SaveTelegram;

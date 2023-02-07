@@ -3,19 +3,52 @@ name = "lofi"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "lofi"
+path = "src/main.rs"
+required-features = [ "build-binary" ]
+
+[lib]
+name = "lofi"
+path = "src/lib.rs"
+
+[features]
+build-binary = [
+    "correlate",
+    "filter",
+    "gps",
+
+    "clap",
+    "csv",
+]
+correlate = [
+    "gps",
+    "tlms/locations",
+    "tlms/telegrams",
+]
+filter = [
+    "tlms/measurements",
+    "tlms/telegrams",
+    "serde",
+    "serde_json",
+]
+gps = [
+    "gpx",
+    "serde",
+    "geojson",
+    "chrono",
+    "serde",
+    "serde_json",
+]
 
 [dependencies]
-clap = { version = "4.0", features = ["derive"] }
-csv = "1.1.6"
-tlms = { git = "https://github.com/tlm-solutions/tlms.rs", branch = "lofi-updates", version = "*", features = ["locations", "telegrams", "measurements"] }
-gpx = "0.8.6"
+tlms = { git = "https://github.com/tlm-solutions/tlms.rs", branch = "lofi-updates", version = "*", default-features = false }
+clap = { version = "4.0", features = ["derive"], optional = true }
+csv = { version = "1.1.6", optional = true }
+gpx = { version = "0.8.6", optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "*", optional = true }
+geojson =  { version = "0.24", optional = true }
 log = "0.4.7"
 stderrlog = "0.5.3"
-serde = { version = "1", features = ["derive"] }
-serde_json = "*"
-chrono = { version = "*", features = ["serde", "rustc-serialize"] }
-uuid = "*"
-geojson =  "0.24"
-geo-types = "*"
-random_color = "0.6"
+chrono = { version = "*", features = ["serde", "rustc-serialize"], optional = true }
