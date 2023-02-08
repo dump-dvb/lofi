@@ -42,7 +42,7 @@ gps = [
 ]
 
 [dependencies]
-tlms = { git = "https://github.com/tlm-solutions/tlms.rs", branch = "lofi-updates", version = "*", default-features = false }
+tlms = { git = "https://github.com/tlm-solutions/tlms.rs", version = "*", default-features = false }
 clap = { version = "4.0", features = ["derive"], optional = true }
 csv = { version = "1.1.6", optional = true }
 gpx = { version = "0.8.6", optional = true }
