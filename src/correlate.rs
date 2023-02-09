@@ -126,14 +126,12 @@ pub fn correlate(
         })
         .collect();
 
-    let stops = LocationsJson::construct(
+    LocationsJson::construct(
         region_data,
         region_meta,
         Some(String::from(env!("CARGO_PKG_NAME"))),
         Some(String::from(env!("CARGO_PKG_VERSION"))),
-    );
-
-    stops
+    )
 }
 
 /// Correlates the telegrams

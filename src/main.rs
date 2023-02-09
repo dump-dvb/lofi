@@ -6,14 +6,14 @@ use crate::correlate::correlate;
 use crate::filter::filter;
 use crate::gps::Gps;
 
-use tlms::locations::{LocationsJson, RequestStatus};
+use tlms::locations::LocationsJson;
 use tlms::telegrams::r09::R09SaveTelegram;
 
 use std::fs::{write, File};
 
 use clap::{Args, Parser, Subcommand};
 use geojson::{Feature, FeatureCollection, Geometry, JsonObject, JsonValue, Value};
-use log::{error, info};
+use log::info;
 
 // Clap sturcts
 #[derive(Parser, Debug)]
