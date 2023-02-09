@@ -10,16 +10,25 @@ use std::io::BufReader;
 /// Gps trackpoint representation used in lofi for Gps data
 #[derive(Clone, Copy, Debug)]
 pub struct GpsPoint {
+    /// point's timestamp
     pub timestamp: i64,
+    /// Latitude
     pub lat: f64,
+    /// Longitude
     pub lon: f64,
+    /// Optional elevation
     pub elevation: Option<f64>,
+    /// Optional GPS accuracy
     pub accuracy: Option<f64>,
+    /// Optional GPS vertical accuracy
     pub vertical_accuracy: Option<f64>,
+    /// Optional GPS bearing (aka angle of the compas)
     pub bearing: Option<f64>,
+    /// Optional speed
     pub speed: Option<f64>,
 }
 
+/// Hasmap of gps timestamps to [`GpsPoint`]
 #[derive(Clone, Debug)]
 pub struct Gps(HashMap<i64, GpsPoint>);
 
@@ -46,6 +55,7 @@ struct Location {
 }
 
 impl Gps {
+    /// Deserialises legacy JSON location tracking. Expect deprecation
     pub fn insert_from_legacy(&mut self, filepath: &str) {
         let file = File::open(filepath).expect("Could not open legacy json file");
         let rdr = BufReader::new(file);
@@ -111,24 +121,29 @@ impl Gps {
     }
 
     // hashmap boilerplate
+    /// Exposes hashmap methods on our type alias
     #[allow(dead_code)]
     pub fn iter(&self) -> impl Iterator<Item = (&i64, &GpsPoint)> {
         self.0.iter()
     }
 
+    /// Exposes hashmap methods on our type alias
     #[allow(dead_code)]
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&i64, &mut GpsPoint)> {
         self.0.iter_mut()
     }
 
+    /// Exposes hashmap methods on our type alias
     pub fn insert(&mut self, k: i64, v: GpsPoint) -> Option<GpsPoint> {
         self.0.insert(k, v)
     }
 
+    /// Exposes hashmap methods on our type alias
     pub fn get(&self, k: &i64) -> Option<&GpsPoint> {
         self.0.get(k)
     }
 
+    /// Exposes hashmap methods on our type alias
     pub fn empty() -> Gps {
         Gps(HashMap::new())
     }

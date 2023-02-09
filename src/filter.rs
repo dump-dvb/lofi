@@ -2,6 +2,8 @@ use std::fs::File;
 use tlms::measurements::FinishedMeasurementInterval;
 use tlms::telegrams::r09::R09SaveTelegram;
 
+/// Takes an iterator over [`R09SaveTelegram`] and returns the iterator over
+/// telegrams matching the conditions in supplied vector of [`FinishedMeasurementInterval`]
 pub fn filter(
     unfiltered: Box<dyn Iterator<Item = R09SaveTelegram>>,
     wtfiles: Vec<String>,

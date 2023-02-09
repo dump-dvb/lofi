@@ -9,18 +9,26 @@ use std::collections::{HashMap, HashSet};
 
 use log::{info, trace, warn};
 
-/// time difference is calculated as telegram.timestamp - gpspoint.timestamp
+/// Struct containing the transmission postion with private fields which are used to infer the
+/// location of this telegram
 #[derive(Debug)]
 pub struct CorrTelegram {
+    /// Transmission postion (meldepunkt) of the telegram
     pub transmission_position: i32,
+    /// Unix timestamp of telegram interception time
     timestamp: i64,
+    /// [`crate::gps::GpsPoint`] of a point that preceded directly before the telegram transmission (within
+    /// correlation range_
     location_before: GpsPoint,
+    /// [`crate::gps::GpsPoint`] of a point that followed directly after the telegram transmission (within
+    /// correlation range_
     location_after: GpsPoint,
+    /// region integer indentifier
     region: i64,
 }
 
 impl CorrTelegram {
-    /// creates `CorrTelegram` from `R09SaveTelegram` and two nearest `GpsPoint`s
+    /// creates [`CorrTelegram`][crate::correlate::CorrTelegram] from [R09SaveTelegram][tlms::telegrams::r09::R09SaveTelegram] and two nearest [`GpsPoint`][crate::gps::GpsPoint]s
     pub fn new(tg: R09SaveTelegram, before: GpsPoint, after: GpsPoint) -> CorrTelegram {
         CorrTelegram {
             transmission_position: tg.reporting_point,
@@ -31,7 +39,7 @@ impl CorrTelegram {
         }
     }
 
-    /// Converts `CorrTelegram` into a tuple of region identifier, meldepunkt and linearly
+    /// Converts [`CorrTelegram`] into a tuple of region identifier, meldepunkt and linearly
     /// interpolated location of the meldepunkt
     pub fn interpolate_position(&self) -> (i64, i32, ReportLocation) {
         (
@@ -52,6 +60,8 @@ impl CorrTelegram {
     }
 }
 
+/// function that performs full analysis of telegrams and gps positions, produces valid (and
+/// hopefully production ready) [`LocationsJson`][tlms::locations::LocationsJson].
 pub fn correlate(
     telegrams: Box<dyn Iterator<Item = R09SaveTelegram>>,
     gps: Gps,
@@ -95,7 +105,7 @@ pub fn correlate(
             .or_insert(HashMap::from([(*mp, pos.clone())])) // If not exists, put hashmap as value
             .insert(*mp, pos.clone()); // or just add the mp, ReportLocation pair
 
-        // save the region list while we at it, so we can quickly add the `RegionMetaInformation`
+        // save the region list while we at it, so we can quickly add the [RegionMetaInformation]
         // after
         if regions.insert(*reg) {
             trace!("Found region no. {} from parsing telegrams", reg)
@@ -134,7 +144,9 @@ pub fn correlate(
     )
 }
 
-/// Correlates the telegrams
+/// Creates  [`Option`]`<`[`crate::correlate::CorrTelegram`]`>` from [`tlms::telegrams::r09::R09SaveTelegram`]
+/// and [`crate::gps::Gps`] taking the correlation window into account. Returns [`None`] if there's no
+/// complete set of locations within correlation window (one before the telegram, one after).
 pub fn correlate_telegram(
     telegram: &R09SaveTelegram,
     gps: &Gps,
