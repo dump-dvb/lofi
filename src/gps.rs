@@ -1,26 +1,34 @@
 use gpx::Gpx;
 use serde::Deserialize;
 
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
-use std::collections::HashMap;
-
 
 // Public Structs
 // Only parts relevant for the interpolation are here
 /// Gps trackpoint representation used in lofi for Gps data
 #[derive(Clone, Copy, Debug)]
 pub struct GpsPoint {
+    /// point's timestamp
     pub timestamp: i64,
+    /// Latitude
     pub lat: f64,
+    /// Longitude
     pub lon: f64,
+    /// Optional elevation
     pub elevation: Option<f64>,
+    /// Optional GPS accuracy
     pub accuracy: Option<f64>,
+    /// Optional GPS vertical accuracy
     pub vertical_accuracy: Option<f64>,
+    /// Optional GPS bearing (aka angle of the compas)
     pub bearing: Option<f64>,
+    /// Optional speed
     pub speed: Option<f64>,
 }
 
+/// Hasmap of gps timestamps to [`GpsPoint`]
 #[derive(Clone, Debug)]
 pub struct Gps(HashMap<i64, GpsPoint>);
 
@@ -47,22 +55,26 @@ struct Location {
 }
 
 impl Gps {
-
+    /// Deserialises legacy JSON location tracking. Expect deprecation
     pub fn insert_from_legacy(&mut self, filepath: &str) {
         let file = File::open(filepath).expect("Could not open legacy json file");
         let rdr = BufReader::new(file);
-        let points: Vec<GpsJson> = serde_json::from_reader(rdr).expect("Could not deserialize json");
+        let points: Vec<GpsJson> =
+            serde_json::from_reader(rdr).expect("Could not deserialize json");
         for p in points {
-            self.insert(p.time, GpsPoint {
-                timestamp: p.time,
-                lat: p.location.latitude,
-                lon: p.location.longitude,
-                elevation: Some(p.location.altitude),
-                accuracy: Some(p.location.accuracy),
-                vertical_accuracy: Some(p.location.vertical_accuracy),
-                bearing: Some(p.location.bearing),
-                speed: Some(p.location.speed),
-            });
+            self.insert(
+                p.time,
+                GpsPoint {
+                    timestamp: p.time,
+                    lat: p.location.latitude,
+                    lon: p.location.longitude,
+                    elevation: Some(p.location.altitude),
+                    accuracy: Some(p.location.accuracy),
+                    vertical_accuracy: Some(p.location.vertical_accuracy),
+                    bearing: Some(p.location.bearing),
+                    speed: Some(p.location.speed),
+                },
+            );
         }
     }
 
@@ -109,26 +121,30 @@ impl Gps {
     }
 
     // hashmap boilerplate
+    /// Exposes hashmap methods on our type alias
     #[allow(dead_code)]
     pub fn iter(&self) -> impl Iterator<Item = (&i64, &GpsPoint)> {
         self.0.iter()
     }
 
+    /// Exposes hashmap methods on our type alias
     #[allow(dead_code)]
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&i64, &mut GpsPoint)> {
         self.0.iter_mut()
     }
 
+    /// Exposes hashmap methods on our type alias
     pub fn insert(&mut self, k: i64, v: GpsPoint) -> Option<GpsPoint> {
         self.0.insert(k, v)
     }
 
+    /// Exposes hashmap methods on our type alias
     pub fn get(&self, k: &i64) -> Option<&GpsPoint> {
         self.0.get(k)
     }
 
+    /// Exposes hashmap methods on our type alias
     pub fn empty() -> Gps {
         Gps(HashMap::new())
     }
-
 }
