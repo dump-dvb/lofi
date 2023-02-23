@@ -1,10 +1,12 @@
 mod correlate;
 mod filter;
 mod gps;
+mod types;
 
 use crate::correlate::correlate;
 use crate::filter::filter;
 use crate::gps::Gps;
+use crate::types::R09Iter;
 
 use tlms::locations::LocationsJson;
 use tlms::telegrams::r09::R09SaveTelegram;
@@ -188,7 +190,7 @@ fn stops2geo(opts: StopsToGeoArgs) {
     }
 }
 
-fn read_telegrams(paths: Vec<String>) -> Box<dyn Iterator<Item = R09SaveTelegram>> {
+fn read_telegrams(paths: Vec<String>) -> R09Iter {
     Box::new(
         paths
             .into_iter()

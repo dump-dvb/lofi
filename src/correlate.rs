@@ -1,4 +1,5 @@
 use crate::gps::{Gps, GpsPoint};
+use crate::types::R09Iter;
 
 use tlms::locations::{
     LocationsJson, RegionMetaInformation, RegionReportLocations, ReportLocation, REGION_META_MAP,
@@ -62,11 +63,7 @@ impl CorrTelegram {
 
 /// function that performs full analysis of telegrams and gps positions, produces valid (and
 /// hopefully production ready) [`LocationsJson`][tlms::locations::LocationsJson].
-pub fn correlate(
-    telegrams: Box<dyn Iterator<Item = R09SaveTelegram>>,
-    gps: Gps,
-    corr_window: i64,
-) -> LocationsJson {
+pub fn correlate(telegrams: R09Iter, gps: Gps, corr_window: i64) -> LocationsJson {
     // correlate telegrams to gps and for every telegram
     let ctg: Vec<CorrTelegram> = telegrams
         .filter_map(|t| correlate_telegram(&t, &gps, corr_window))
