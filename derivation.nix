@@ -1,4 +1,4 @@
-{ craneLib, src, lib, cmake, pkg-config, postgresql_14 }:
+{ craneLib, src, lib, cmake, pkg-config, postgresql_14, openssl }:
 
 craneLib.buildPackage {
   pname = "lofi";
@@ -7,7 +7,7 @@ craneLib.buildPackage {
   src = ./.;
   cargoExtraArgs = "--bin lofi --features=build-binary";
 
-  buildInputs = [ cmake postgresql_14 ];
+  buildInputs = [ cmake postgresql_14 openssl ];
   nativeBuildInputs = [ pkg-config ];
 
   meta = {
