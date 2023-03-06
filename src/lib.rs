@@ -13,7 +13,3 @@ pub mod correlate;
 /// Tools to fliter the telegrams.
 #[cfg(feature = "filter")]
 pub mod filter;
-
-/// lofi GPS abstraction layer.
-#[cfg(feature = "gps")]
-pub mod gps;

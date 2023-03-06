@@ -1,14 +1,14 @@
-use crate::gps::{Gps, GpsPoint};
 use crate::types::R09Iter;
 
+use tlms::locations::gps::{Gps, InsertGpsPoint};
 use tlms::locations::{
-    LocationsJson, RegionMetaInformation, RegionReportLocations, ReportLocation, RegionMetaCache
+    LocationsJson, RegionMetaCache, RegionMetaInformation, RegionReportLocations, ReportLocation,
 };
 use tlms::telegrams::r09::R09SaveTelegram;
 
 use std::collections::{HashMap, HashSet};
 
-use log::{info, trace, warn, error};
+use log::{error, info, trace, warn};
 
 /// Struct containing the transmission postion with private fields which are used to infer the
 /// location of this telegram
@@ -18,19 +18,19 @@ pub struct CorrTelegram {
     pub transmission_position: i32,
     /// Unix timestamp of telegram interception time
     timestamp: i64,
-    /// [`crate::gps::GpsPoint`] of a point that preceded directly before the telegram transmission (within
+    /// [`InsertGpsPoint`] of a point that preceded directly before the telegram transmission (within
     /// correlation range_
-    location_before: GpsPoint,
-    /// [`crate::gps::GpsPoint`] of a point that followed directly after the telegram transmission (within
+    location_before: InsertGpsPoint,
+    /// [`InsertGpsPoint`] of a point that followed directly after the telegram transmission (within
     /// correlation range_
-    location_after: GpsPoint,
+    location_after: InsertGpsPoint,
     /// region integer indentifier
     region: i64,
 }
 
 impl CorrTelegram {
-    /// creates [`CorrTelegram`][crate::correlate::CorrTelegram] from [R09SaveTelegram][tlms::telegrams::r09::R09SaveTelegram] and two nearest [`GpsPoint`][crate::gps::GpsPoint]s
-    pub fn new(tg: R09SaveTelegram, before: GpsPoint, after: GpsPoint) -> CorrTelegram {
+    /// creates [`CorrTelegram`][crate::correlate::CorrTelegram] from [R09SaveTelegram][tlms::telegrams::r09::R09SaveTelegram] and two nearest [`InsertGpsPoint`]'s
+    pub fn new(tg: R09SaveTelegram, before: InsertGpsPoint, after: InsertGpsPoint) -> CorrTelegram {
         CorrTelegram {
             transmission_position: tg.reporting_point,
             timestamp: tg.time.timestamp(),
@@ -48,12 +48,16 @@ impl CorrTelegram {
             self.transmission_position,
             ReportLocation {
                 lat: self.location_before.lat
-                    + (self.timestamp - self.location_before.timestamp) as f64
-                        / (self.location_after.timestamp + self.location_before.timestamp) as f64
+                    + (self.timestamp - self.location_before.timestamp.timestamp()) as f64
+                        / (self.location_after.timestamp.timestamp()
+                            + self.location_before.timestamp.timestamp())
+                            as f64
                         * (self.location_after.lat - self.location_before.lat),
                 lon: self.location_before.lon
-                    + (self.timestamp - self.location_before.timestamp) as f64
-                        / (self.location_after.timestamp + self.location_before.timestamp) as f64
+                    + (self.timestamp - self.location_before.timestamp.timestamp()) as f64
+                        / (self.location_after.timestamp.timestamp()
+                            + self.location_before.timestamp.timestamp())
+                            as f64
                         * (self.location_after.lon - self.location_before.lon),
                 properties: serde_json::Value::Null,
             },
@@ -63,7 +67,12 @@ impl CorrTelegram {
 
 /// function that performs full analysis of telegrams and gps positions, produces valid (and
 /// hopefully production ready) [`LocationsJson`][tlms::locations::LocationsJson].
-pub fn correlate(telegrams: R09Iter, gps: Gps, corr_window: i64, region_meta_cache: RegionMetaCache) -> LocationsJson {
+pub fn correlate(
+    telegrams: R09Iter,
+    gps: Gps,
+    corr_window: i64,
+    region_meta_cache: RegionMetaCache,
+) -> LocationsJson {
     // correlate telegrams to gps and for every telegram
     let ctg: Vec<CorrTelegram> = telegrams
         .filter_map(|t| correlate_telegram(&t, &gps, corr_window))
@@ -114,10 +123,11 @@ pub fn correlate(telegrams: R09Iter, gps: Gps, corr_window: i64, region_meta_cac
         .map(|reg| match region_meta_cache.metadata.get(reg) {
             Some(r) => (*reg, r.clone()),
             None => {
-                error!("Could not find region no. {reg} in cache (cache updated: {date})", date = region_meta_cache.modified);
-                warn!(
-                    "filling RegionMetaInformation with null values for region {reg}!"
+                error!(
+                    "Could not find region no. {reg} in cache (cache updated: {date})",
+                    date = region_meta_cache.modified
                 );
+                warn!("filling RegionMetaInformation with null values for region {reg}!");
                 (
                     *reg,
                     RegionMetaInformation {
@@ -141,20 +151,20 @@ pub fn correlate(telegrams: R09Iter, gps: Gps, corr_window: i64, region_meta_cac
 }
 
 /// Creates  [`Option`]`<`[`crate::correlate::CorrTelegram`]`>` from [`tlms::telegrams::r09::R09SaveTelegram`]
-/// and [`crate::gps::Gps`] taking the correlation window into account. Returns [`None`] if there's no
+/// and [`Gps`] taking the correlation window into account. Returns [`None`] if there's no
 /// complete set of locations within correlation window (one before the telegram, one after).
 pub fn correlate_telegram(
     telegram: &R09SaveTelegram,
     gps: &Gps,
     corr_window: i64,
 ) -> Option<CorrTelegram> {
-    let after: Vec<&GpsPoint> = (0..corr_window)
+    let after: Vec<&InsertGpsPoint> = (0..corr_window)
         .collect::<Vec<i64>>()
         .into_iter()
         .filter_map(|x| gps.get(&(telegram.time.timestamp() + x)))
         .collect();
 
-    let before: Vec<&GpsPoint> = (-corr_window..0)
+    let before: Vec<&InsertGpsPoint> = (-corr_window..0)
         .rev()
         .collect::<Vec<i64>>()
         .into_iter()

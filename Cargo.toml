@@ -1,6 +1,6 @@
 [package]
 name = "lofi"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 
 [[bin]]
@@ -16,27 +16,19 @@ path = "src/lib.rs"
 build-binary = [
     "correlate",
     "filter",
-    "gps",
 
     "clap",
     "csv",
+    "geojson",
 ]
 correlate = [
-    "gps",
     "tlms/locations",
     "tlms/telegrams",
+    "serde_json",
 ]
 filter = [
     "tlms/measurements",
     "tlms/telegrams",
-    "serde",
-    "serde_json",
-]
-gps = [
-    "gpx",
-    "serde",
-    "geojson",
-    "chrono",
     "serde",
     "serde_json",
 ]
@@ -45,10 +37,8 @@ gps = [
 tlms = { git = "https://github.com/tlm-solutions/tlms.rs", version = "*", default-features = false }
 clap = { version = "4.1", features = ["derive"], optional = true }
 csv = { version = "1.1.6", optional = true }
-gpx = { version = "0.8.6", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "*", optional = true }
-geojson =  { version = "0.24", optional = true }
+geojson = { version = "0.24", optional = true }
 log = "0.4"
 stderrlog = "0.5.3"
-chrono = { version = "*", features = ["serde", "rustc-serialize"], optional = true }
