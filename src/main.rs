@@ -1,17 +1,16 @@
 mod correlate;
 mod filter;
-mod gps;
 mod types;
 
 use crate::correlate::correlate;
 use crate::filter::filter;
-use crate::gps::Gps;
 use crate::types::R09Iter;
+use tlms::locations::gps::Gps;
 
 use tlms::locations::LocationsJson;
 
-use std::fs::{write, File};
 use std::env;
+use std::fs::{write, File};
 
 use clap::{Args, Parser, Subcommand};
 use geojson::{Feature, FeatureCollection, Geometry, JsonObject, JsonValue, Value};
@@ -52,9 +51,6 @@ struct CorrelateArgs {
     /// GPX-formatted gps track
     #[clap(short, long, required = true)]
     gps: Vec<String>,
-    /// Legacy format gps data, you most probably don't need that
-    #[clap(long)]
-    gps_legacy: Vec<String>,
     /// wartrammer-40k json file with measured public transport runs
     #[clap(short, long)]
     wartrammer: Option<Vec<String>>,
@@ -138,13 +134,13 @@ fn correlate_cmd(cli: CorrelateArgs) {
     for filepath in cli.gps {
         gps.insert_from_gpx_file(&filepath);
     }
-    for filepath in cli.gps_legacy {
-        gps.insert_from_legacy(&filepath);
-    }
 
     let cache_dir = match env::var("XDG_CACHE_HOME") {
         Ok(val) => format!("{val}/lofi"),
-        Err(_) => format!("{basedir}/lofi", basedir = env::var("HOME").unwrap_or("/tmp".to_string())),
+        Err(_) => format!(
+            "{basedir}/lofi",
+            basedir = env::var("HOME").unwrap_or("/tmp".to_string())
+        ),
     };
 
     if cli.offline {
@@ -155,7 +151,8 @@ fn correlate_cmd(cli: CorrelateArgs) {
         todo!("--force-cache-refresh not yet implemented");
     }
 
-    let region_cache = LocationsJson::update_region_cache(&cli.datacare_url, cache_dir.into()).expect("lol");
+    let region_cache =
+        LocationsJson::update_region_cache(&cli.datacare_url, cache_dir.into()).expect("lol");
 
     let stops = correlate(telegrams, gps, cli.corr_window, region_cache);
 
