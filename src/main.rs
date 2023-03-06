@@ -9,9 +9,9 @@ use crate::gps::Gps;
 use crate::types::R09Iter;
 
 use tlms::locations::LocationsJson;
-use tlms::telegrams::r09::R09SaveTelegram;
 
 use std::fs::{write, File};
+use std::env;
 
 use clap::{Args, Parser, Subcommand};
 use geojson::{Feature, FeatureCollection, Geometry, JsonObject, JsonValue, Value};
@@ -68,6 +68,15 @@ struct CorrelateArgs {
     /// values result in more transmission position matched at the cost of accuracy.
     #[clap(long, default_value = "5")]
     corr_window: i64,
+    /// If specified, there will be no attempt on region cache update from datacare api
+    #[clap(long)]
+    offline: bool,
+    /// If specified, forces cache renewal from the API
+    #[clap(long)]
+    force_cache_refresh: bool,
+    /// Base URL of datacare API, set to https://datacare.dvb.solutions/
+    #[clap(long, default_value = "https://datacare.dvb.solutions")]
+    datacare_url: String,
 }
 
 #[derive(Args, Debug)]
@@ -133,7 +142,22 @@ fn correlate_cmd(cli: CorrelateArgs) {
         gps.insert_from_legacy(&filepath);
     }
 
-    let stops = correlate(telegrams, gps, cli.corr_window);
+    let cache_dir = match env::var("XDG_CACHE_HOME") {
+        Ok(val) => format!("{val}/lofi"),
+        Err(_) => format!("{basedir}/lofi", basedir = env::var("HOME").unwrap_or("/tmp".to_string())),
+    };
+
+    if cli.offline {
+        todo!("--offline not yet implemented");
+    };
+
+    if cli.force_cache_refresh {
+        todo!("--force-cache-refresh not yet implemented");
+    }
+
+    let region_cache = LocationsJson::update_region_cache(&cli.datacare_url, cache_dir.into()).expect("lol");
+
+    let stops = correlate(telegrams, gps, cli.corr_window, region_cache);
 
     stops.write(&cli.stops_json);
 

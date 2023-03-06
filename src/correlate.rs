@@ -2,13 +2,13 @@ use crate::gps::{Gps, GpsPoint};
 use crate::types::R09Iter;
 
 use tlms::locations::{
-    LocationsJson, RegionMetaInformation, RegionReportLocations, ReportLocation, REGION_META_MAP,
+    LocationsJson, RegionMetaInformation, RegionReportLocations, ReportLocation, RegionMetaCache
 };
 use tlms::telegrams::r09::R09SaveTelegram;
 
 use std::collections::{HashMap, HashSet};
 
-use log::{info, trace, warn};
+use log::{info, trace, warn, error};
 
 /// Struct containing the transmission postion with private fields which are used to infer the
 /// location of this telegram
@@ -63,7 +63,7 @@ impl CorrTelegram {
 
 /// function that performs full analysis of telegrams and gps positions, produces valid (and
 /// hopefully production ready) [`LocationsJson`][tlms::locations::LocationsJson].
-pub fn correlate(telegrams: R09Iter, gps: Gps, corr_window: i64) -> LocationsJson {
+pub fn correlate(telegrams: R09Iter, gps: Gps, corr_window: i64, region_meta_cache: RegionMetaCache) -> LocationsJson {
     // correlate telegrams to gps and for every telegram
     let ctg: Vec<CorrTelegram> = telegrams
         .filter_map(|t| correlate_telegram(&t, &gps, corr_window))
@@ -111,13 +111,12 @@ pub fn correlate(telegrams: R09Iter, gps: Gps, corr_window: i64) -> LocationsJso
 
     let region_meta: HashMap<i64, RegionMetaInformation> = regions
         .iter()
-        .map(|reg| match REGION_META_MAP.get(reg) {
+        .map(|reg| match region_meta_cache.metadata.get(reg) {
             Some(r) => (*reg, r.clone()),
             None => {
-                warn!("Could not find region no. {}! Is tlms.rs updated?", reg);
+                error!("Could not find region no. {reg} in cache (cache updated: {date})", date = region_meta_cache.modified);
                 warn!(
-                    "filling RegionMetaInformation with null values for region {}!",
-                    reg
+                    "filling RegionMetaInformation with null values for region {reg}!"
                 );
                 (
                     *reg,
