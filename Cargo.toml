@@ -34,7 +34,7 @@ filter = [
 ]
 
 [dependencies]
-tlms = { git = "https://github.com/tlm-solutions/tlms.rs", version = "0.8", tag = "v0.8.0", default-features = false }
+tlms = { path = "../tlms.rs-master", default-features = false }
 clap = { version = "4.1", features = ["derive"], optional = true }
 csv = { version = "1.1.6", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }

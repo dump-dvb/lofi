@@ -79,10 +79,13 @@ struct CorrelateArgs {
 struct MergeArgs {
     /// output directory in which stops.json-formatted files will be written
     #[clap(short, long, required = true)]
-    out_dir: String,
+    output: String,
     /// Input stops.json-formatted files
-    #[clap(required = true)]
-    stops: Vec<String>,
+    #[clap(short, long, required = true)]
+    first: String,
+    #[clap(short, long, required = true)]
+    second: String,
+
 }
 
 #[derive(Args, Debug)]
@@ -182,8 +185,15 @@ fn filter_cmd(opts: FilterArgs) {
         .for_each(drop);
 }
 
-fn merge(_opts: MergeArgs) {
-    todo!();
+fn merge(opts: MergeArgs) {
+    let mut old_stops = LocationsJson::from_file(&opts.first).expect("first file broken");
+    let new_stops = LocationsJson::from_file(&opts.second).expect("second file broken");
+
+    let region_cache = LocationsJson::update_region_cache("https://datacare.dvb.solutions/", "/home/grue/.config/lofi".into()).expect("lol");
+
+    old_stops.merge(&new_stops, region_cache.metadata).expect("lol");
+    let stops_json = serde_json::to_string_pretty(&old_stops).expect("cannot put lipstic on a pig");
+    println!("{stops_json}");
 }
 
 /// Convert the json-formatted locations to geojson, useful for debug
