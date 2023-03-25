@@ -1,21 +1,17 @@
-use crate::types::R09Iter;
-
 use tlms::locations::gps::{Gps, InsertGpsPoint};
-use tlms::locations::{
-    LocationsJson, RegionMetaCache, RegionMetaInformation, RegionReportLocations, ReportLocation,
-};
+use tlms::locations::{ApiTransmissionLocation, InsertTransmissionLocationRaw};
 use tlms::telegrams::r09::R09SaveTelegram;
 
-use std::collections::{HashMap, HashSet};
+use uuid::Uuid;
 
-use log::{error, info, trace, warn};
+use log::debug;
 
 /// Struct containing the transmission postion with private fields which are used to infer the
 /// location of this telegram
 #[derive(Debug)]
 pub struct CorrTelegram {
     /// Transmission postion (meldepunkt) of the telegram
-    pub transmission_position: i32,
+    pub reporting_point: i32,
     /// Unix timestamp of telegram interception time
     timestamp: i64,
     /// [`InsertGpsPoint`] of a point that preceded directly before the telegram transmission (within
@@ -26,27 +22,74 @@ pub struct CorrTelegram {
     location_after: InsertGpsPoint,
     /// region integer indentifier
     region: i64,
+    /// from which trekkie run it was generated
+    trekkie_run: Option<Uuid>,
+    /// who owned a trekkie run
+    run_owner: Option<Uuid>,
+}
+
+impl TryFrom<CorrTelegram> for InsertTransmissionLocationRaw {
+    type Error = &'static str;
+    fn try_from(value: CorrTelegram) -> Result<Self, Self::Error> {
+        let trekkie_run = match value.trekkie_run {
+            Some(r) => r,
+            None => {
+                return Err("trekkie run is not set!");
+            }
+        };
+        let run_owner = match value.run_owner {
+            Some(r) => r,
+            None => {
+                return Err("trekkie run is not set!");
+            }
+        };
+        Ok(InsertTransmissionLocationRaw {
+            id: None,
+            region: value.region,
+            reporting_point: value.reporting_point,
+            lat: value.location_before.lat
+                + (value.timestamp - value.location_before.timestamp.timestamp()) as f64
+                    / (value.location_after.timestamp.timestamp()
+                        + value.location_before.timestamp.timestamp()) as f64
+                    * (value.location_after.lat - value.location_before.lat),
+            lon: value.location_before.lon
+                + (value.timestamp - value.location_before.timestamp.timestamp()) as f64
+                    / (value.location_after.timestamp.timestamp()
+                        + value.location_before.timestamp.timestamp()) as f64
+                    * (value.location_after.lon - value.location_before.lon),
+            trekkie_run,
+            run_owner,
+        })
+    }
 }
 
 impl CorrTelegram {
     /// creates [`CorrTelegram`][crate::correlate::CorrTelegram] from [R09SaveTelegram][tlms::telegrams::r09::R09SaveTelegram] and two nearest [`InsertGpsPoint`]'s
-    pub fn new(tg: R09SaveTelegram, before: InsertGpsPoint, after: InsertGpsPoint) -> CorrTelegram {
+    pub fn new(
+        tg: R09SaveTelegram,
+        before: InsertGpsPoint,
+        after: InsertGpsPoint,
+        trekkie_run: Uuid,
+        run_owner: Uuid,
+    ) -> CorrTelegram {
         CorrTelegram {
-            transmission_position: tg.reporting_point,
+            reporting_point: tg.reporting_point,
             timestamp: tg.time.timestamp(),
             location_before: before,
             location_after: after,
             region: tg.region,
+            trekkie_run: Some(trekkie_run),
+            run_owner: Some(run_owner),
         }
     }
 
     /// Converts [`CorrTelegram`] into a tuple of region identifier, meldepunkt and linearly
     /// interpolated location of the meldepunkt
-    pub fn interpolate_position(&self) -> (i64, i32, ReportLocation) {
+    pub fn interpolate_position(&self) -> (i64, i32, ApiTransmissionLocation) {
         (
             self.region,
-            self.transmission_position,
-            ReportLocation {
+            self.reporting_point,
+            ApiTransmissionLocation {
                 lat: self.location_before.lat
                     + (self.timestamp - self.location_before.timestamp.timestamp()) as f64
                         / (self.location_after.timestamp.timestamp()
@@ -65,98 +108,56 @@ impl CorrTelegram {
     }
 }
 
+/// Error type for correlate function
+pub enum CorrelateError {
+    /// No appropriate input recieved
+    EmptyInput,
+    /// [Some of] the data is for the inappropriate region
+    RegionMismatch,
+}
+
 /// function that performs full analysis of telegrams and gps positions, produces valid (and
 /// hopefully production ready) [`LocationsJson`][tlms::locations::LocationsJson].
-pub fn correlate(
-    telegrams: R09Iter,
+///
+/// Function expects all the telegrams to be from the same region
+pub fn correlate_from_trekkie(
+    telegrams: &Vec<R09SaveTelegram>,
     gps: Gps,
     corr_window: i64,
-    region_meta_cache: RegionMetaCache,
-) -> LocationsJson {
-    // correlate telegrams to gps and for every telegram
-    let ctg: Vec<CorrTelegram> = telegrams
-        .filter_map(|t| correlate_telegram(&t, &gps, corr_window))
+    trekkie_run: Uuid,
+    run_owner: Uuid,
+) -> Result<Vec<InsertTransmissionLocationRaw>, CorrelateError> {
+    if telegrams.is_empty() {
+        return Err(CorrelateError::EmptyInput);
+    }
+
+    let correlated_telegrams: Vec<CorrTelegram> = telegrams
+        .iter()
+        .filter_map(|t| correlate_telegram_trekkie(t, &gps, corr_window, trekkie_run, run_owner))
         .collect();
 
-    info!("Matched {} telegrams", ctg.len());
+    debug!(
+        "Correlated {} telegrams, discarded: {}",
+        correlated_telegrams.len(),
+        (telegrams.len() - correlated_telegrams.len())
+    );
 
     // for every corrtelegram, interpolate the position from gps track
-    let positions: Vec<(i64, i32, ReportLocation)> =
-        ctg.iter().map(|x| x.interpolate_position()).collect();
-
-    // dedups locations, take average between new telegram and already existing one, if
-    // nonexistent, then insert
-    let mut deduped_positions: HashMap<(i64, i32), ReportLocation> = HashMap::new();
-    for (reg, mp, pos) in positions {
-        deduped_positions
-            .entry((reg, mp))
-            .and_modify(|e| e.lat = (pos.lat + e.lat) / 2_f64)
-            .and_modify(|e| e.lon = (pos.lon + e.lon) / 2_f64)
-            .or_insert(pos);
-    }
-
-    // update locations with epsg3857 coordinates
-    deduped_positions
-        .values_mut()
+    Ok(correlated_telegrams
         .into_iter()
-        .for_each(|loc| loc.update_epsg3857());
-
-    // Constructing the stops.json
-    // colect all deduped loc positions
-    let mut region_data: HashMap<i64, RegionReportLocations> = HashMap::new();
-    let mut regions: HashSet<i64> = HashSet::new();
-    for ((reg, mp), pos) in &deduped_positions {
-        region_data
-            .entry(*reg) // get the region value
-            .or_insert(HashMap::from([(*mp, pos.clone())])) // If not exists, put hashmap as value
-            .insert(*mp, pos.clone()); // or just add the mp, ReportLocation pair
-
-        // save the region list while we at it, so we can quickly add the [RegionMetaInformation]
-        // after
-        if regions.insert(*reg) {
-            trace!("Found region no. {} from parsing telegrams", reg)
-        }
-    }
-
-    let region_meta: HashMap<i64, RegionMetaInformation> = regions
-        .iter()
-        .map(|reg| match region_meta_cache.metadata.get(reg) {
-            Some(r) => (*reg, r.clone()),
-            None => {
-                error!(
-                    "Could not find region no. {reg} in cache (cache updated: {date})",
-                    date = region_meta_cache.modified
-                );
-                warn!("filling RegionMetaInformation with null values for region {reg}!");
-                (
-                    *reg,
-                    RegionMetaInformation {
-                        frequency: None,
-                        city_name: None,
-                        type_r09: None,
-                        lat: None,
-                        lon: None,
-                    },
-                )
-            }
-        })
-        .collect();
-
-    LocationsJson::construct(
-        region_data,
-        region_meta,
-        Some(String::from(env!("CARGO_PKG_NAME"))),
-        Some(String::from(env!("CARGO_PKG_VERSION"))),
-    )
+        .filter_map(|x| x.try_into().ok())
+        .collect::<Vec<InsertTransmissionLocationRaw>>())
 }
 
 /// Creates  [`Option`]`<`[`crate::correlate::CorrTelegram`]`>` from [`tlms::telegrams::r09::R09SaveTelegram`]
 /// and [`Gps`] taking the correlation window into account. Returns [`None`] if there's no
 /// complete set of locations within correlation window (one before the telegram, one after).
-pub fn correlate_telegram(
+pub fn correlate_telegram_trekkie(
     telegram: &R09SaveTelegram,
     gps: &Gps,
     corr_window: i64,
+    trekkie_run: Uuid,
+    run_owner: Uuid,
 ) -> Option<CorrTelegram> {
     let after: Vec<&InsertGpsPoint> = (0..corr_window)
         .collect::<Vec<i64>>()
@@ -172,7 +173,13 @@ pub fn correlate_telegram(
         .collect();
 
     match (before.get(0), after.get(0)) {
-        (Some(a), Some(b)) => Some(CorrTelegram::new(telegram.clone(), **b, **a)),
+        (Some(a), Some(b)) => Some(CorrTelegram::new(
+            telegram.clone(),
+            **b,
+            **a,
+            trekkie_run,
+            run_owner,
+        )),
         _ => None,
     }
 }
