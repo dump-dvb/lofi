@@ -1,8 +1,17 @@
 # Changelog
 
 ## Unreleased
+
 ### Breaking
+
+Old correlation function deleted
+
+Type aliases removed
+
 ### New
+
+Add correlation function to work with trekkie and db-stored data
+
 ### Misc
 
 ## 0.3.0
