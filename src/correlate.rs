@@ -1,4 +1,4 @@
-use tlms::locations::gps::InsertGpsPoint;
+use tlms::locations::gps::GpsPoint;
 use tlms::locations::{ApiTransmissionLocation, InsertTransmissionLocationRaw};
 use tlms::telegrams::r09::R09SaveTelegram;
 
@@ -15,12 +15,12 @@ pub struct CorrTelegram {
     pub reporting_point: i32,
     /// Unix timestamp of telegram interception time
     timestamp: i64,
-    /// [`InsertGpsPoint`] of a point that preceded directly before the telegram transmission (within
+    /// [`GpsPoint`] of a point that preceded directly before the telegram transmission (within
     /// correlation range_
-    location_before: InsertGpsPoint,
-    /// [`InsertGpsPoint`] of a point that followed directly after the telegram transmission (within
+    location_before: GpsPoint,
+    /// [`GpsPoint`] of a point that followed directly after the telegram transmission (within
     /// correlation range_
-    location_after: InsertGpsPoint,
+    location_after: GpsPoint,
     /// region integer indentifier
     region: i64,
     /// from which trekkie run it was generated
@@ -65,11 +65,11 @@ impl TryFrom<CorrTelegram> for InsertTransmissionLocationRaw {
 }
 
 impl CorrTelegram {
-    /// creates [`CorrTelegram`][crate::correlate::CorrTelegram] from [R09SaveTelegram][tlms::telegrams::r09::R09SaveTelegram] and two nearest [`InsertGpsPoint`]'s
+    /// creates [`CorrTelegram`][crate::correlate::CorrTelegram] from [R09SaveTelegram][tlms::telegrams::r09::R09SaveTelegram] and two nearest [`GpsPoint`]'s
     pub fn new(
         tg: R09SaveTelegram,
-        before: InsertGpsPoint,
-        after: InsertGpsPoint,
+        before: GpsPoint,
+        after: GpsPoint,
         trekkie_run: Uuid,
         run_owner: Uuid,
     ) -> CorrTelegram {
@@ -122,7 +122,7 @@ pub enum CorrelateError {
 /// insert into the appropriate DB table.
 pub fn correlate_trekkie_run(
     telegrams: &Vec<R09SaveTelegram>,
-    gps: Vec<InsertGpsPoint>,
+    gps: Vec<GpsPoint>,
     corr_window: i64,
     trekkie_run: Uuid,
     run_owner: Uuid,
@@ -134,7 +134,7 @@ pub fn correlate_trekkie_run(
     let gps = gps
         .into_iter()
         .map(|v| (v.timestamp.timestamp(), v))
-        .collect::<HashMap<i64, InsertGpsPoint>>();
+        .collect::<HashMap<i64, GpsPoint>>();
 
     let correlated_telegrams: Vec<CorrTelegram> = telegrams
         .iter()
@@ -161,18 +161,18 @@ pub fn correlate_trekkie_run(
 /// complete set of locations within correlation window (one before the telegram, one after).
 pub fn correlate_trekkie_run_telegram(
     telegram: &R09SaveTelegram,
-    gps: &HashMap<i64, InsertGpsPoint>,
+    gps: &HashMap<i64, GpsPoint>,
     corr_window: i64,
     trekkie_run: Uuid,
     run_owner: Uuid,
 ) -> Option<CorrTelegram> {
-    let after: Vec<&InsertGpsPoint> = (0..corr_window)
+    let after: Vec<&GpsPoint> = (0..corr_window)
         .collect::<Vec<i64>>()
         .into_iter()
         .filter_map(|x| gps.get(&(telegram.time.timestamp() + x)))
         .collect();
 
-    let before: Vec<&InsertGpsPoint> = (-corr_window..0)
+    let before: Vec<&GpsPoint> = (-corr_window..0)
         .rev()
         .collect::<Vec<i64>>()
         .into_iter()
