@@ -7,6 +7,9 @@ use uuid::Uuid;
 
 use std::collections::HashMap;
 
+/// default correlation window in seconds
+pub const DEFAULT_CORRELATION_WINDOW: i64 = 7;
+
 /// Struct containing the transmission postion with private fields which are used to infer the
 /// location of this telegram
 #[derive(Debug)]
