@@ -2,7 +2,6 @@ use tlms::locations::gps::GpsPoint;
 use tlms::locations::{ApiTransmissionLocation, InsertTransmissionLocationRaw};
 use tlms::telegrams::r09::R09SaveTelegram;
 
-use log::debug;
 use uuid::Uuid;
 
 use std::collections::HashMap;
@@ -145,12 +144,6 @@ pub fn correlate_trekkie_run(
             correlate_trekkie_run_telegram(t, &gps, corr_window, trekkie_run, run_owner)
         })
         .collect();
-
-    debug!(
-        "Correlated {} telegrams, discarded: {}",
-        correlated_telegrams.len(),
-        (telegrams.len() - correlated_telegrams.len())
-    );
 
     // for every corrtelegram, interpolate the position from gps track
     Ok(correlated_telegrams

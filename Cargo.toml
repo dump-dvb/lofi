@@ -7,22 +7,7 @@ edition = "2021"
 name = "lofi"
 path = "src/lib.rs"
 
-[features]
-default = [ "correlate" ]
-correlate = [
-    "tlms/locations",
-    "tlms/telegrams",
-    "uuid"
-]
-filter = [
-    "tlms/measurements",
-    "tlms/telegrams",
-]
-
 [dependencies]
-tlms = { version = "0.9", git = "https://github.com/tlm-solutions/tlms.rs", default-features = false }
-serde = { version = "1.0", features = ["derive"] }
+tlms = { version = "0.9", git = "https://github.com/tlm-solutions/tlms.rs", features = [ "locations", "telegrams" ] }
 serde_json = { version = "1.0" }
-uuid = {version = "1.2", features = ["serde", "v4"], optional = true}
-log = "0.4"
-stderrlog = "0.5"
+uuid = {version = "1.2", features = ["serde", "v4"] }
