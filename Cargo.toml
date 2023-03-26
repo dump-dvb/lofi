@@ -3,45 +3,26 @@ name = "lofi"
 version = "0.3.1"
 edition = "2021"
 
-[[bin]]
-name = "lofi"
-path = "src/main.rs"
-required-features = [ "build-binary" ]
-
 [lib]
 name = "lofi"
 path = "src/lib.rs"
 
 [features]
 default = [ "correlate" ]
-build-binary = [
-    "correlate",
-    "filter",
-
-    "clap",
-    "csv",
-    "geojson",
-]
 correlate = [
     "tlms/locations",
     "tlms/telegrams",
-    "serde_json",
     "uuid"
 ]
 filter = [
     "tlms/measurements",
     "tlms/telegrams",
-    "serde",
-    "serde_json",
 ]
 
 [dependencies]
 tlms = { version = "0.9", git = "https://github.com/tlm-solutions/tlms.rs", default-features = false }
-clap = { version = "4.1", features = ["derive"], optional = true }
-csv = { version = "1.1.6", optional = true }
-serde = { version = "1", features = ["derive"], optional = true }
-serde_json = { version = "*", optional = true }
-geojson = { version = "0.24", optional = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
 uuid = {version = "1.2", features = ["serde", "v4"], optional = true}
 log = "0.4"
-stderrlog = "0.5.3"
+stderrlog = "0.5"
