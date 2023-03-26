@@ -4,5 +4,4 @@
 //! transmitted. You most probably want to look at [`crate::correlate`]
 
 /// Tools to correlate telegrams to positions.
-#[cfg(feature = "correlate")]
 pub mod correlate;

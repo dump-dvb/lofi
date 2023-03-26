@@ -67,7 +67,7 @@ impl TryFrom<CorrTelegram> for InsertTransmissionLocationRaw {
 }
 
 impl CorrTelegram {
-    /// creates [`CorrTelegram`][crate::correlate::CorrTelegram] from [R09SaveTelegram][tlms::telegrams::r09::R09SaveTelegram] and two nearest [`GpsPoint`]'s
+    /// creates [`CorrTelegram`] from [`R09SaveTelegram`] and two nearest [`GpsPoint`]'s
     pub fn new(
         tg: R09SaveTelegram,
         before: GpsPoint,
@@ -120,7 +120,7 @@ pub enum CorrelateError {
 }
 
 /// Function correlates telegrams to locations within one trekkie run, and designed to be used
-/// within [trekkie][<https://github.com/tlm-solutions/trekkie>]. Returned vector is ready to
+/// within [trekkie](https://github.com/tlm-solutions/trekkie). Returned vector is ready to
 /// insert into the appropriate DB table.
 pub fn correlate_trekkie_run(
     telegrams: &Vec<R09SaveTelegram>,
@@ -152,9 +152,10 @@ pub fn correlate_trekkie_run(
         .collect::<Vec<InsertTransmissionLocationRaw>>())
 }
 
-/// Creates  [`crate::correlate::CorrTelegram`] from [`tlms::telegrams::r09::R09SaveTelegram`]
-/// and [`Gps`] taking the correlation window into account. Returns [`None`] if there's no
-/// complete set of locations within correlation window (one before the telegram, one after).
+/// Creates  [`CorrTelegram`] from [`tlms::telegrams::r09::R09SaveTelegram`] and a hashmap of unix
+/// timestamps to [`GpsPoint`], taking the correlation window into account. Returns [`None`] if
+/// there's no complete set of locations within correlation window (one before the telegram, one
+/// after).
 pub fn correlate_trekkie_run_telegram(
     telegram: &R09SaveTelegram,
     gps: &HashMap<i64, GpsPoint>,
