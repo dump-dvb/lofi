@@ -116,11 +116,10 @@ pub enum CorrelateError {
     RegionMismatch,
 }
 
-/// function that performs full analysis of telegrams and gps positions, produces valid (and
-/// hopefully production ready) [`LocationsJson`][tlms::locations::LocationsJson].
-///
-/// Function expects all the telegrams to be from the same region
-pub fn correlate_from_trekkie(
+/// Function correlates telegrams to locations within one trekkie run, and designed to be used
+/// within [trekkie][<https://github.com/tlm-solutions/trekkie>]. Returned vector is ready to
+/// insert into the appropriate DB table.
+pub fn correlate_trekkie_run(
     telegrams: &Vec<R09SaveTelegram>,
     gps: Gps,
     corr_window: i64,
@@ -133,7 +132,9 @@ pub fn correlate_from_trekkie(
 
     let correlated_telegrams: Vec<CorrTelegram> = telegrams
         .iter()
-        .filter_map(|t| correlate_telegram_trekkie(t, &gps, corr_window, trekkie_run, run_owner))
+        .filter_map(|t| {
+            correlate_trekkie_run_telegram(t, &gps, corr_window, trekkie_run, run_owner)
+        })
         .collect();
 
     debug!(
@@ -149,10 +150,10 @@ pub fn correlate_from_trekkie(
         .collect::<Vec<InsertTransmissionLocationRaw>>())
 }
 
-/// Creates  [`Option`]`<`[`crate::correlate::CorrTelegram`]`>` from [`tlms::telegrams::r09::R09SaveTelegram`]
+/// Creates  [`crate::correlate::CorrTelegram`] from [`tlms::telegrams::r09::R09SaveTelegram`]
 /// and [`Gps`] taking the correlation window into account. Returns [`None`] if there's no
 /// complete set of locations within correlation window (one before the telegram, one after).
-pub fn correlate_telegram_trekkie(
+pub fn correlate_trekkie_run_telegram(
     telegram: &R09SaveTelegram,
     gps: &Gps,
     corr_window: i64,
@@ -173,10 +174,10 @@ pub fn correlate_telegram_trekkie(
         .collect();
 
     match (before.get(0), after.get(0)) {
-        (Some(a), Some(b)) => Some(CorrTelegram::new(
+        (Some(before_point), Some(after_point)) => Some(CorrTelegram::new(
             telegram.clone(),
-            **b,
-            **a,
+            **before_point,
+            **after_point,
             trekkie_run,
             run_owner,
         )),
