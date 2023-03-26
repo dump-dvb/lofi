@@ -1,10 +1,11 @@
-use tlms::locations::gps::{Gps, InsertGpsPoint};
+use tlms::locations::gps::InsertGpsPoint;
 use tlms::locations::{ApiTransmissionLocation, InsertTransmissionLocationRaw};
 use tlms::telegrams::r09::R09SaveTelegram;
 
+use log::debug;
 use uuid::Uuid;
 
-use log::debug;
+use std::collections::HashMap;
 
 /// Struct containing the transmission postion with private fields which are used to infer the
 /// location of this telegram
@@ -121,7 +122,7 @@ pub enum CorrelateError {
 /// insert into the appropriate DB table.
 pub fn correlate_trekkie_run(
     telegrams: &Vec<R09SaveTelegram>,
-    gps: Gps,
+    gps: Vec<InsertGpsPoint>,
     corr_window: i64,
     trekkie_run: Uuid,
     run_owner: Uuid,
@@ -129,6 +130,11 @@ pub fn correlate_trekkie_run(
     if telegrams.is_empty() {
         return Err(CorrelateError::EmptyInput);
     }
+
+    let gps = gps
+        .into_iter()
+        .map(|v| (v.timestamp.timestamp(), v))
+        .collect::<HashMap<i64, InsertGpsPoint>>();
 
     let correlated_telegrams: Vec<CorrTelegram> = telegrams
         .iter()
@@ -155,7 +161,7 @@ pub fn correlate_trekkie_run(
 /// complete set of locations within correlation window (one before the telegram, one after).
 pub fn correlate_trekkie_run_telegram(
     telegram: &R09SaveTelegram,
-    gps: &Gps,
+    gps: &HashMap<i64, InsertGpsPoint>,
     corr_window: i64,
     trekkie_run: Uuid,
     run_owner: Uuid,
