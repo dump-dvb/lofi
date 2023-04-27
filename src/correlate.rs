@@ -2,6 +2,7 @@ use tlms::locations::gps::GpsPoint;
 use tlms::locations::{ApiTransmissionLocation, InsertTransmissionLocationRaw};
 use tlms::telegrams::r09::R09SaveTelegram;
 
+use log::error;
 use uuid::Uuid;
 
 use std::collections::HashMap;
@@ -11,7 +12,7 @@ pub const DEFAULT_CORRELATION_WINDOW: i64 = 7;
 
 /// Struct containing the transmission postion with private fields which are used to infer the
 /// location of this telegram
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CorrTelegram {
     /// Transmission postion (meldepunkt) of the telegram
     pub reporting_point: i32,
@@ -112,6 +113,7 @@ impl CorrTelegram {
 }
 
 /// Error type for correlate function
+#[derive(Debug, Clone)]
 pub enum CorrelateError {
     /// No appropriate input recieved
     EmptyInput,
@@ -148,7 +150,19 @@ pub fn correlate_trekkie_run(
     // for every corrtelegram, interpolate the position from gps track
     Ok(correlated_telegrams
         .into_iter()
-        .filter_map(|x| x.try_into().ok())
+        .filter_map(|x| {
+            let run_id = x.trekkie_run;
+            match x.try_into() {
+                Ok(result) => Some(result),
+                Err(e) => {
+                    error!(
+                        "error while correlating run: {:?} with error {:?}",
+                        &run_id, &e
+                    );
+                    None
+                }
+            }
+        })
         .collect::<Vec<InsertTransmissionLocationRaw>>())
 }
 

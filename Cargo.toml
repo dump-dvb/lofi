@@ -11,3 +11,4 @@ path = "src/lib.rs"
 tlms = { version = "0.9", git = "https://github.com/tlm-solutions/tlms.rs", features = [ "locations", "telegrams" ] }
 serde_json = { version = "1.0" }
 uuid = {version = "1.2", features = ["serde", "v4"] }
+log = {version = "0.4"}
